@@ -1,0 +1,26 @@
+<hmtl>
+<script src="./js/loaderDocument.js"></script>
+<script>
+console.log('script load');
+function atest() {
+	console.log("start test");
+	loaderDocument.load("./js/xslTransform.js",aTransform);
+}
+function aTransform() { 
+	var aatransform=new XslTransform();
+	document.getElementById("outArea").value="loading";
+	aatransform.initialise("./xslt/verintAttributesExtract.xsl","./dbschema.xml",displayResults,aatransform);
+}
+function displayResults() { 
+	console.log("displayResults");
+	document.getElementById("outArea").value = this.getText();
+}
+console.log('script loaded');
+</script>
+
+<body  onload="console.log('body onload');atest();">
+<h1>Convert</h1>
+<p/>
+<textarea id="outArea" rows="20" cols="100">No call</textarea>
+</body>
+</html>

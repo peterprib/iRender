@@ -1,0 +1,13 @@
+header {background: black;color:white;}
+footer {background: #aaa;color:white;}
+.navPaneMenu {
+      float:left;
+      width:20%;
+      height:80%;
+   }
+.navPaneDetail {
+      float:left;
+      width:75%;
+      height:80%;
+    }
+ 
