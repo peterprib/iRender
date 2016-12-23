@@ -18,7 +18,27 @@ else
 			return false;
    		};
 function IRenderClass() {
+    this.styleSheet = document.getElementById("IRenderCSS");
+    if (this.styleSheet==null) {
+    	console.log("IRenderClass define stylesheet IRenderCSS");
+    	this.styleSheet = document.createElement("style");
+    	this.styleSheet.type = "text/css";
+    	this.styleSheet.id = "IRenderCSS";
+    	document.getElementsByTagName("head")[0].appendChild(this.styleSheet);
+    	var cssAdd=this.styleSheet.sheet.insertRule?this.cssInsertRule:this.cssAddRule;
+    	cssAdd.call(this,"Header","background-color: LightSkyBlue ; text-align: center;");
+    	cssAdd.call(this,"Footer","background-color: LightSkyBlue ; text-align: center;");
+    }
 }
+IRenderClass.prototype.cssInsertRule = function (name,rules) {
+	console.log('IRenderClass cssInsertRule '+name);
+	this.styleSheet.sheet.insertRule('.IRender'+name+"{"+rules+"}",0);
+};
+IRenderClass.prototype.cssAddRule = function (name,rules) {
+	console.log('IRenderClass cssAddRule '+name);
+	this.styleSheet.sheet.addRule('.IRender'+name, rules);
+};
+
 IRenderClass.prototype.nav = function (n) {
 		console.log('nav');
 	};
@@ -44,10 +64,10 @@ IRender.prototype.addPane = function(p) {
 IRender.prototype.appendPane = function(n,p) {
 		var h = document.createElement("HEADER");
 		h.nodeValue=p.title||"No Pane Title Set";
-		d.className = "IRenderPaneH";
+		this.setClass(h,"Header");
 		n.appendChild(h);
 		var d = document.createElement("DIV");
-		d.className = "IRenderPaneD";
+		this.setClass(d,"Detail");
 		n.appendChild(d);
 	};
 IRender.prototype.attributes = function(a) {
@@ -72,8 +92,12 @@ IRender.prototype.buildBase = function(n) {
 		}
 	};
 IRender.prototype.BODY = function(n) {
+		console.log("IRender BODY");
 		if(this.window.title) document.title=this.window.title;
-		if(n.firstChild==null || n.firstChild.nodeName!=="HEADER") this.insertHeader(n);
+		if(n.firstElementChild==null || n.firstElementChild.nodeName!=="HEADER") 
+			this.insertHeader(n);
+		else 
+			this.setClass(n.firstElementChild,"Header");
 		if(n.lastChild.nodeName!=="FOOTER") this.insertFooter(n);
 		var d=n.getElementsByTagName('div');
 		if(d.l==0) {
@@ -86,6 +110,10 @@ IRender.prototype.checkProperties = function(o,ps) {
 			if(!p.inList(ps))
 				throw Error('invalid property '+p);
 	};
+IRender.prototype.createNode = function(nodeDetails) {
+		if (nodeDetails.constructor === String) return document.createTextNode(nodeDetails);
+		throw Error("creadeNode unknown type, "+JSON.stringify(nodeDetails));
+	};
 IRender.prototype.formHtml = function(form) {
 		var r="",q=(form.questions||[]),l=q.length;
 		for(var i=0;i<l;i++)
@@ -96,13 +124,15 @@ IRender.prototype.header = function(a,n) {
 		return this.tag("header",a,n||this.window.title||"No Title Set");
 	};
 IRender.prototype.insertFooter = function(n) {
-		var h = document.createElement("FOOTER");
-		h.nodeValue=this.window.footer||"No Footer Set";
+		console.log("IRender insertFooter");
+		var h = this.setClass(document.createElement("FOOTER"),"Footer");
+		h.appendChild(this.createNode(this.window.footer||"No Footer Set"));
 		n.appendChild(h);
 	};
 IRender.prototype.insertHeader = function(n) {
-		var h = document.createElement("HEADER");
-		h.nodeValue=this.window.title||"No Title Set";
+		console.log("IRender insertHeader");
+		var h = this.setClass(document.createElement("HEADER"),"Header");
+		h.appendChild(this.createNode(this.window.title||"No Title Set"));
 		if(n.childNodes.length>0)
 			n.insertBefore(h,n.childNodes[0]);
 		else
@@ -133,8 +163,12 @@ IRender.prototype.setAllNodes = function(c,f) {
 	};
 IRender.prototype.setAllProperties = function(t,p,m) {
 		for(var i in p)
-			t[i]=p[i]||this.metadata.window.default||null;
+			t[i]=p[i]||this.metadata.window["default"]||null;
 	};
+IRender.prototype.setClass = function(n,name) {
+		n.className="IRender"+name;
+		return n;
+	}
 IRender.prototype.setWindow = function(p) {
 		this.checkProperties(p,this.metadata.window);
 		this.setAllProperties(this.window,p,this.metadata.window);
