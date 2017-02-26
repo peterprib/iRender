@@ -1,0 +1,22 @@
+{ "name": "iRender"
+, "description": "browser rendering using JSON"
+,"version": "0.0.1"
+,"main": "main.js"
+,"repository" :
+	{"type" : "git"
+	,"url" : "https://github.com/peterprib/iRender.git"
+	 }
+ ,"keywords":  ["javascript","parser"]
+,"author": "Peter Prib"
+,"bugs": "https://github.com/peterprib/iRender/issues"
+,"license": "GPL-3.0"
+,"bin": 
+	{"test": "./main.js"
+	}
+ ,"dependencies": 
+ 	{"express": "*"
+ 	,"serve-favicon": "*"
+ 	,"requirejs": "*"
+ 	,"amdefine":"*"
+ 	}
+}
