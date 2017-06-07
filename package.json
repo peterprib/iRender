@@ -18,5 +18,8 @@
  	,"serve-favicon": "*"
  	,"requirejs": "*"
  	,"amdefine":"*"
+ 	,"vis":"*"
+	,"font-awesome":"*"
+	,"bootstrap":"*"
  	}
 }
