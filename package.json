@@ -2,6 +2,7 @@
 , "description": "browser rendering using JSON"
 ,"version": "0.0.1"
 ,"main": "main.js"
+,"config" : { "port" : "3000" }
 ,"repository" :
 	{"type" : "git"
 	,"url" : "https://github.com/peterprib/iRender.git"
@@ -14,12 +15,13 @@
 	{"test": "./main.js"
 	}
  ,"dependencies": 
- 	{"express": "*"
- 	,"serve-favicon": "*"
- 	,"requirejs": "*"
- 	,"amdefine":"*"
- 	,"vis":"*"
+    {"express": "*"
+    ,"serve-favicon": "*"
+    ,"requirejs": "*"
+    ,"amdefine":"*"
+    ,"vis":"*"
 	,"font-awesome":"*"
 	,"bootstrap":"*"
- 	}
+	}
+,"scripts": { "start": "node main.js"}
 }
