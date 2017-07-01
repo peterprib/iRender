@@ -17,15 +17,7 @@ else
 			}
 			return false;
    		};
-function eventFire(e, etype){
-	if (e.fireEvent) {
-		e.fireEvent('on' + etype);
-	} else {
-		var event = document.createEvent('Events');
-		event.initEvent(etype, true, false);
-		e.dispatchEvent(event);
-	}
-}
+
 function fireEvent(node, eventName) {
     // Make sure we use the ownerDocument from the provided node to avoid cross-window problems
     var doc;
@@ -51,21 +43,18 @@ function fireEvent(node, eventName) {
             case "mouseup":
                 eventClass = "MouseEvents";
                 break;
-
             case "focus":
             case "change":
             case "blur":
             case "select":
                 eventClass = "HTMLEvents";
                 break;
-
             default:
                 throw "fireEvent: Couldn't find an event class for event '" + eventName + "'.";
                 break;
         }
         var event = doc.createEvent(eventClass);
         event.initEvent(eventName, true, true); // All events created as bubbling and cancelable.
-
         event.synthetic = true; // allow detection of synthetic events
         // The second parameter says go ahead with the default action
         node.dispatchEvent(event, true);
@@ -77,19 +66,17 @@ function fireEvent(node, eventName) {
     }
 };
 function createTable (rows,cols) {
-   			var t=document.createElement("TABLE");
-//   			rows=rows||1;
-//   			cols=cols||1;
-   			while (t.rows.length<rows) {
-   				var r=document.createElement("TR");
-   				t.appendChild(r);
-   				while (r.cells.length<cols) {
-   					var c=document.createElement("TD");
-   					c.appendChild(c);
-   				}
-   			}
-   			return t;
-   		}
+	var t=document.createElement("TABLE");
+	while (t.rows.length<rows) {
+		var r=document.createElement("TR");
+		t.appendChild(r);
+		while (r.cells.length<cols) {
+			var c=document.createElement("TD");
+			c.appendChild(c);
+		}
+	}
+	return t;
+}
 function createTableRow (t) {
 	var r=document.createElement("TR");
 	t.appendChild(r);
@@ -100,12 +87,10 @@ function createTableCell (r) {
 	r.appendChild(c);
 	return c;
 }
-
 function createNode (nodeDetails) {
 	if (nodeDetails.constructor === String) return document.createTextNode(nodeDetails);
 	throw Error("creadeNode unknown type, "+JSON.stringify(nodeDetails));
 };
-
 function Action (b,p) {
 	Object.assign(this,p);
 	this.base=b;
@@ -121,6 +106,12 @@ Action.prototype.exec_pane = function (e) {
 		var p=new Pane(this.base,this.base.panes[this.pane]);
 		e.setDetail(this.title,p.element);
 	};
+Action.prototype.iframeLoad = function (e) {
+		console.log("iframeLoad");
+	};
+Action.prototype.iframeError = function (e) {
+		console.log("iframeError");
+	};
 Action.prototype.exec_link = function (e) {
 		console.log("Action exec_Link");
 		if(this.target==null) {
@@ -131,70 +122,15 @@ Action.prototype.exec_link = function (e) {
 			window.open(this.url, '_blank').focus();
 			return;
 		}
-		var iframe = document.createElement("IFRAME");
-		iframe.src = 'about:blank';
+		var iframe =  css.setClass(document.createElement("IFRAME"),"FullLeft");
+		iframe.addEventListener('load', this.iframeLoad.bind(this), false);	
+		iframe.addEventListener('error', this.iframeError.bind(this), false);	
+		iframe.referrerPolicy = "unsafe-url";
 		iframe.src=this.url;
 		iframe.style="display: inline;";
+		iframe.scrolling="auto";
 		e.setDetail(this.title,iframe);
-		//oSession.oResponse.headers.Remove("X-Frame-Options");
-		//oSession.oResponse.headers.Add("Access-Control-Allow-Origin", "*");
-	
-/*		browser.webRequest.onHeadersReceived.addListener(
-			    function(info) {
-			        var headers = info.responseHeaders;
-			        for (var i=headers.length-1; i>=0; --i) {
-			            var header = headers[i].name.toLowerCase();
-			            if (header == 'x-frame-options' || header == 'frame-options') {
-			                headers.splice(i, 1); // Remove header
-			            }
-			        }
-			        return {responseHeaders: headers};
-			    },
-			    {
-*///			        urls: [ '*://*/*' ], // Pattern to match all http(s) pages
-/*			        types: [ 'sub_frame' ]
-			    },
-			    ['blocking', 'responseHeaders']
-			);
-			
-			browser.webRequest.onHeadersReceived.addListener();
-			
-/*		
-		  mainWindow.webContents.session.webRequest.onHeadersReceived({}, (d, c) => {
-			    if(d.responseHeaders['x-frame-options'] || d.responseHeaders['X-Frame-Options']){
-			        delete d.responseHeaders['x-frame-options'];
-			        delete d.responseHeaders['X-Frame-Options'];
-			    }
-			    c({cancel: false, responseHeaders: d.responseHeaders});
-			  });
-*/		
-/*		var xhr = new XMLHttpRequest();
-		xhr.onreadystatechange = function() {
-		    if (xhr.readyState !== 4) return;
-		    if (xhr.status === 200) {
-		        var doc = iframe.contentWindow.document;
-		        doc.open();
-		        doc.write(xhr.responseText);
-		        doc.close();
-		    }
-		}
-		xhr.open('GET', this.url, true);
-		xhr.setRequestHeader("Access-Control-Allow-Origin","*");
-		xhr.setRequestHeader("x-frame-options", "ALLOW-FROM *");
-		
-		 var headers = {
-    'content-type': 'application/x-www-form-urlencoded',
-    origin: 'https://twitter.com',
-    referer: 'https://twitter.com/',
-    'x-requested-with': 'XMLHttpRequest'
-  };
-
-  Object.keys(headers).forEach((header) => {
-    xhr.setRequestHeader(header, headers[header]);
-  })
-		
-		xhr.send(null);
-*/	};
+	};
 
 function Footer (b,p,n) {
 	console.log("IRender Footer");
@@ -213,21 +149,31 @@ function Header(b,p,n,o) {
 	n.appendChild(this.element);
 }
 function Menu (b,p,n) {
-	console.log("IRender Menu");
 	this.element=css.setClass(document.createElement("DIV"),"Menu")
 	this.table=document.createElement("TABLE");
 	this.element.appendChild(this.table);
+	this.options={};
 	for(var option in p.options){
-		new MenuOption(b,p.options[option],this);
+		this.options[option] = new MenuOption(b,p.options[option],this);
 	}
 	this.parent=n;
 	n.appendChild(this.element);
 }
+Menu.prototype.select = function (o) {
+		if(o==null) return;
+		fireEvent(this.find(o).element, "click");
+	};
 Menu.prototype.setDetail = function (t,n) {
-	this.parent.setDetail(t,n);
-};
+		this.parent.setDetail(t,n);
+	};
+Menu.prototype.find = function (t) {
+		for(var option in this.options){
+			if(this.options[option].title==t) return this.options[option];
+		}
+		throw Error("menu option "+t+" not found");
+	};
+
 function MenuOption(b,p,parent) {
-	console.log("IRender MenuOption");
 	Object.assign(this,p);
 	this.element=css.setClass(document.createElement("TR"),"MenuOption");
 	var	c1 = document.createElement("TD")
@@ -237,7 +183,7 @@ function MenuOption(b,p,parent) {
 	this.element.addEventListener('click', this.onclick.bind(this), false);	
 	c1.innerText="-";
 	c2.appendChild(b.getImage("file"));
-	c3.innerText=p.title;
+	c3.innerText=this.title;
 	this.element.appendChild(c1);
 	this.element.appendChild(c2);
 	this.element.appendChild(c3);
@@ -247,10 +193,9 @@ function MenuOption(b,p,parent) {
 	parent.table.appendChild(this.element);
 }
 MenuOption.prototype.setDetail = function (t,n) {
-		this.parent.setDetail(t,n);
+		this.parent.setDetail(this.title||t,n);
 	};
 MenuOption.prototype.onclick = function (e) {
-		console.log("MenuOption onclick "+this.action);
 		this.base.actions[this.action].exec(this);
 	};
 function Pane (b,p,n) {
@@ -261,11 +206,12 @@ function Pane (b,p,n) {
 	else if(p.hasOwnProperty("title")) new Header(b,{title:p.title},this.element);
 	this.element.appendChild(this.centre);
 	if(p.hasOwnProperty("footer")) new Footer(b,p.footer,this.element);
-	if(p.hasOwnProperty("leftMenu")) new Menu(b,b.menus[p.leftMenu],this);
+	if(p.hasOwnProperty("leftMenu")) this.menu=new Menu(b,b.menus[p.leftMenu],this);
 	this.tabPane = new TabPane(b,p,this.centre);
 	if(n==null) return;
 	this.parent=n;
 	n.appendChild(this.element)
+	if(p.hasOwnProperty("leftMenu")) this.menu.select(p.show);
 }
 Pane.prototype.appendChild = function (n) {
 		this.centre.appendChild(n);
@@ -285,27 +231,40 @@ function TabPane(b,p,parent) {
 	this.parent=parent;
 	parent.appendChild(this.element);
 }
+TabPane.prototype.onclick = function (e) {
+	this.hideCurrent();
+	this.setCurrent(e.currentTarget.cellIndex);
+};
+TabPane.prototype.setCurrent = function (i) {
+	this.panesRow.cells[i].style.display = 'inline';
+	this.tabsRow.cells[i].style.backgroundColor="LightGrey";
+	this.activeTab=i;
+};
+TabPane.prototype.hideCurrent = function (e) {
+	if(this.activeTab==null) return;
+	this.panesRow.cells[this.activeTab].style.display = 'none';
+	this.tabsRow.cells[this.activeTab].style.backgroundColor="";
+	this.activeTab=null;
+};
 TabPane.prototype.setTab = function (t,n) {
 	console.log("TabPane setDetail");
-	for(var i=0; i<this.tabsRow.cells.length;i++ ) {
+	this.hideCurrent();
+	for(var done, i=0; i<this.tabsRow.cells.length;i++ ) {
 		if(this.tabsRow.cells[i].innerText==t) {
+			this.activeTab=i;
 			while (this.panesRow.cells[i].firstChild) {
 				this.panesRow.cells[i].removeChild(this.panesRow.cells[i].firstChild);
 			}
 			this.panesRow.cells[i].appendChild(n);
-			this.panesRow.cells[i].style.display = 'inline';
-
+			this.setCurrent(i);
 			return;
-		} else {
-		    if (this.panesRow.cells[i].style.display !== 'none') {
-		    	this.panesRow.cells[i].style.display = 'none';
-		    }
 		}
 	}
-	
 	var ct=css.setClass(createTableCell(this.tabsRow),"Tab")
 		,cp=css.setClass(createTableCell(this.panesRow),"TabDetail");
+	ct.addEventListener('click', this.onclick.bind(this), false);	
 	ct.innerText=t;
+	this.setCurrent(this.tabsRow.cells.length-1);
 	cp.appendChild(n);
 };
 function Window (b,p,n) {
@@ -328,10 +287,9 @@ function IRenderClass() {
     	this.rule=this.styleSheet.sheet.insertRule?this.cssInsertRule:this.cssAddRule;
     	this.add("HeaderMain","background-color: LightSkyBlue ; text-align: center;");
     	this.add("Header","background-color: LightGrey ; text-align: center;");
-    	this.add("Footer","background-color: LightSkyBlue ; text-align: center;");
-    	this.add("HeaderPane","background-color: LightGrey ; text-align: center;");
-    	this.add("FooterPane","background-color: LightGrey ; text-align: center;");
-    	this.add("DetailPane","display: flex; ");
+    	this.add("FooterMain","background-color: LightSkyBlue ; text-align: center; vertical-align: bottom;");
+    	this.add("Footer","background-color: LightGrey ; text-align: center; vertical-align: bottom;");
+    	this.add("DetailPane","display: flex; height: 100%; width: 100%;");
     	this.add("Menu","width: 200px; float: left; border-right-style: solid; border-right-color: LightGrey; border-right-width: thin;");
     	this.add("MenuOption:hover","background: LightGrey;");
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");
@@ -362,7 +320,7 @@ function IRender() {
 	this.guid=0;
 	this.metadata = {
 			action: {id:null,type:["link","pane"],url:null,title:null,target:null,pane:null}
-			,pane: {id:null ,title:null, leftMenu:null}
+			,pane: {id:null ,title:null, leftMenu:null,show:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,option: {title:null ,action:null}
 			,window: {title:{"default":"No Title Specified"},footer:{"default":"No Footer Specified"},pane:null}
