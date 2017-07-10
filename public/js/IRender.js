@@ -1,4 +1,4 @@
-
+var svg=require("svg");
 if(String.prototype.inList)
 	console.log("String.prototype.inList already defined");
 else
@@ -17,7 +17,7 @@ else
 			}
 			return false;
    		};
-
+   		
 function fireEvent(node, eventName) {
     // Make sure we use the ownerDocument from the provided node to avoid cross-window problems
     var doc;
@@ -131,6 +131,29 @@ Action.prototype.exec_link = function (e) {
 		iframe.style="display: inline;";
 		iframe.scrolling="auto";
 		e.setDetail(this.title,iframe);
+	};
+Action.prototype.exec_svg = function (e) {
+		try{
+			e.setDetail(this.title,new Svg(this.passing).element);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+Action.prototype.exec_googleMap = function (e) {
+		try{
+		    var mapOptions = this.passing||{
+			        center: new google.maps.LatLng(51.5, -0.12),
+			        zoom: 10,
+			        mapTypeId: google.maps.MapTypeId.HYBRID
+			    };
+			e.map = new google.maps.Map(e.element, mapOptions);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+Action.prototype.setCatchError = function (e,ex) {
+		console.error("IRender action "+this.type+" error: "+ex+"\nStack: "+ex.stack);	
+		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack,{height:"100%"}).element);
 	};
 function CenterRow(b,p,n,o) {
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
@@ -257,7 +280,6 @@ Pane.prototype.sizeCenter = function () {
 		this.centerNode.style.height= this.element.clientHeight
 				-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
 				-(this.footerNode?this.footerNode.element.getBoundingClientRect().Height:0);
-		
 	};
 Pane.prototype.appendChild = function (n) {
 		this.centerNode.appendChild(n);
@@ -273,19 +295,17 @@ function PaneRow(b,p,n) {
 	this.element.appendChild(this.centerCell.element);
 }
 function TabPane(b,p,parent) {
-//	css.setClass(parent,"TabPaneCell");
 	this.element=parent;
 	this.tabs=createTable();
 	this.tabsRow=createTableRow(this.tabs);
 	this.panes=css.setClass(createTable(),"Table");
 	this.panesRow=css.setClass(createTableRow(this.panes),"Row");
-//	this.element.appendChild(this.tabs);
-//	this.element.appendChild(this.panes);
 	
 	this.table=css.setClass(createTable(2,1),"Table");
 	this.table.rows[0].style.height="30px";
 	this.table.rows[0].cells[0].appendChild(this.tabs);;
 	this.table.rows[1].cells[0].appendChild(this.panes);
+	css.setClass(this.table.rows[1].cells[0],"TabPaneCell");
 	this.element.appendChild(this.table);
 }
 TabPane.prototype.onclick = function (e) {
@@ -323,6 +343,18 @@ TabPane.prototype.setDetail = function (t,n) {
 	this.setCurrent(this.tabsRow.cells.length-1);
 	cp.appendChild(n);
 };
+function TextArea(v,o,n) {
+	this.element=document.createElement("textarea");
+	if(o) Object.assign(this.element,o);
+	this.element.irender=this;
+	this.element.value=v; 
+	this.appendTo(n);
+}
+TextArea.prototype.appendTo = function (n) {
+	if(n) this.appendChild(n)
+	return this;
+};
+
 function Table() {
 	this.element=document.createElement("TABLE");
 }
@@ -392,7 +424,7 @@ function IRenderClass() {
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");
 //       	this.add("TabDetail","height: 100%; width: 100%; float: left;");
        	this.add("TabDetail","");
-    	this.add("TabPaneCell","");
+    	this.add("TabPaneCell","border-top-style: solid; border-top-color: LightGrey;");
        	this.add("FullLeft","display: inline-block; height: 100%; width: 100%; background-color: white;");
        	this.add("Table","display: table; height: 100%; width: 100%; border-spacing: 0px;");
        	this.add("TableCell","background-color: inherit");
@@ -445,7 +477,7 @@ function IRender() {
 	this.actions={};
 	this.guid=0;
 	this.metadata = {
-			action: {id:null,type:["link","pane"],url:null,title:null,target:null,pane:null}
+			action: {id:null,type:["link","pane","svg","googleMap"],url:null,title:null,target:null,pane:null,passing:null}
 			,pane: {id:null ,title:null, leftMenu:null,show:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,option: {title:null ,action:null}
