@@ -18,53 +18,55 @@ else
 			return false;
    		};
    		
+ /*<input id="files" type="file" webkitdirectory>
+  *  HTMLInputElement.webkitdirectory = boolValue
+  *  
+   		document.getElementById("files").addEventListener("change", function(event) {
+   		  event.target.webkitEntries.forEach(function(entry) {
+   		  });
+   		});
+   	  var openFile = function(event) {
+
+   		
+   		
+  *  
+  */
+  	
 function fireEvent(node, eventName) {
-    // Make sure we use the ownerDocument from the provided node to avoid cross-window problems
     var doc;
-    if (node.ownerDocument) {
-        doc = node.ownerDocument;
-    } else if (node.nodeType == 9){
-        // the node may be the document itself, nodeType 9 = DOCUMENT_NODE
-        doc = node;
+    if(node.ownerDocument) {
+        doc = node.ownerDocument;  // ownerDocument from the provided node to avoid cross-window problems
+    } else if(node.nodeType == 9){
+        doc = node; // the node may be the document itself, nodeType 9 = DOCUMENT_NODE
     } else {
         throw new Error("Invalid node passed to fireEvent: " + node.id);
     }
-
-     if (node.dispatchEvent) {
-        // Gecko-style approach (now the standard) takes more work
-        var eventClass = "";
-
-        // Different events have different event classes.
-        // If this switch statement can't map an eventName to an eventClass,
-        // the event firing is going to fail.
-        switch (eventName) {
-            case "click": // Dispatching of 'click' appears to not work correctly in Safari. Use 'mousedown' or 'mouseup' instead.
-            case "mousedown":
-            case "mouseup":
-                eventClass = "MouseEvents";
-                break;
-            case "focus":
-            case "change":
-            case "blur":
-            case "select":
-                eventClass = "HTMLEvents";
-                break;
-            default:
-                throw "fireEvent: Couldn't find an event class for event '" + eventName + "'.";
-                break;
-        }
-        var event = doc.createEvent(eventClass);
-        event.initEvent(eventName, true, true); // All events created as bubbling and cancelable.
+    if(node.dispatchEvent) {
+        // Gecko-style approach (now the standard) but takes more work
+        var event = doc.createEvent(this.getEventClass(eventName));
+        event.initEvent(eventName, true, true); // All events created as bubbling and can be cancelled.
         event.synthetic = true; // allow detection of synthetic events
-        // The second parameter says go ahead with the default action
-        node.dispatchEvent(event, true);
-    } else  if (node.fireEvent) {
-        // IE-old school style, you can drop this if you don't need to support IE8 and lower
+        node.dispatchEvent(event, true); // The second parameter says go ahead with the default action
+    } else  if(node.fireEvent) { // IE-old school style - IE8 and lower
         var event = doc.createEventObject();
         event.synthetic = true; // allow detection of synthetic events
         node.fireEvent("on" + eventName, event);
     }
 };
+fireEvent.prototype.eventClasses = {
+		MouseEvents: ["click", "mousedown","mouseup"]
+		,HTMLEvents: ["focus","change","blur","select"]
+	};
+fireEvent.prototype.getEventClass = function (e) {
+		for(var c in this.eventClasses) {
+			for(var p in this.eventClasses[c]) {
+				if(e==this.eventClasses[c][p]) return c;
+			}
+		}
+		throw Error("fireEvent: Couldn't find an event class for event '" + eventName + "'.");
+	};
+
+
 function createDiv () {
 	return css.setClass(document.createElement("DIV"),"FullLeft");
 }
@@ -104,15 +106,46 @@ function Action (b,p) {
 };
 Action.prototype.exec_floatingPane = function (e) {
 	};
+Action.prototype.exec_fileReader = function (e) {
+	    var thisObject=this
+	    	,request=new XMLHttpRequest();
+	    request.onreadystatechange= function() {
+	        if (request.readyState==4 && request.status==200) {
+	            var regexp = /(?<=addRow\()(.*\n?)(?=\))/gi;      // (?<=beginningstringname)(.*\n?)(?=endstringname)
+				var matches = xmlhttp.responseText.match(regexp);
+	        }
+	    }
+	    request.onerror = function(progress){
+	    	thisObject.setCatchError(e,new Error("Load failed, check log for details"));
+	    };
+	    request.open("GET", "file:"+this.passing);
+	    request.withCredentials = "true";
+    	request.send();
+/*
+		var reader = new FileReader()
+			,thisObject=this;
+	    reader.onload = function(){
+			e.setDetail(thisObject.title,new TextArea((reader.result)).element);
+	    };
+	    reader.onerror = function(ex){
+	    	thisObject.setCatchError(e,ex)
+	    };
+	    reader.readAsDataURL(this.passing);
+*/
+	};
+
 Action.prototype.exec_pane = function (e) {
 		var p=new Pane(this.base,this.base.panes[this.pane]);
 		e.setDetail(this.title,p.element);
 	};
-Action.prototype.iframeLoad = function (e) {
-		console.log("iframeLoad");
+Action.prototype.iframeLoad = function (ev) {
+		if(ev.currentTarget.childElementCount>0) return;
+		this.iframeError(ev);
 	};
-Action.prototype.iframeError = function (e) {
-		console.log("iframeError");
+Action.prototype.iframeError = function (ev) {
+		var base = ev.currentTarget.parentElement
+		base.removeChild(base.firstChild);
+		new TextArea("Load failed, check log for details",null,base); 
 	};
 Action.prototype.exec_folder = function (e) {
 		if(e.isExpanded()) {
@@ -164,7 +197,7 @@ Action.prototype.exec_googleMap = function (e) {
 	};
 Action.prototype.setCatchError = function (e,ex) {
 		console.error("IRender action "+this.type+" error: "+ex+"\nStack: "+ex.stack);	
-		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack,{height:"100%"}).element);
+		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack).element).setFullSize();
 	};
 function CenterRow(b,p,n,o) {
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
@@ -184,7 +217,7 @@ CenterRow.prototype.appendChild = function (n) {
 	this.centerCell.appendChild(n);
 };
 CenterRow.prototype.setDetail = function (title,n) {
-	this.tabPane.setDetail(title,n);
+	return this.tabPane.setDetail(title,n);
 };
 function Footer (b,p,n,o) {
 	this.element=css.setClass(document.createElement("DIV"),(o&&o.style?o.style:"Footer"));
@@ -214,18 +247,22 @@ function HeaderRow(b,p,n,o) {
 	this.element.appendChild(this.center);
 }
 function Menu(b,p,n,t) {
+	this.base=b;
+	this.parent=n;
 	this.target=t;
 	this.resizeHover=false;
 	css.setClass(n,"MenuCell")
 	this.element=document.createElement("TABLE");
 	this.options={};
 	for(var option in p.options){
-		this.options[option] = new MenuOption(b,p.options[option],this);
+		this.addOption(option,p.options[option]);
 	}
-	this.parent=n;
 	n.appendChild(this.element);
 	n.addEventListener('mousemove', this.mousemove.bind(this), false);	
 }
+Menu.prototype.addOption = function (o,p) {
+		this.options[o] = new MenuOption(this.base,p,this);
+	};
 Menu.prototype.appendChild = function (n) {
 		this.element.appendChild(n);
 	};
@@ -246,7 +283,7 @@ Menu.prototype.select = function (o) {
 		fireEvent(this.find(o).element, "click");
 	};
 Menu.prototype.setDetail = function (t,n) {
-		this.target.setDetail(t,n);
+		return this.target.setDetail(t,n);
 	};
 Menu.prototype.find = function (t) {
 		for(var option in this.options){
@@ -290,10 +327,16 @@ MenuOption.prototype.nextState = function (a) {
 MenuOption.prototype.isExpanded = function () {
 		return (this.expandCell.innerText=="-");
 	};
-MenuOption.prototype.setExpanded = function () {
+MenuOption.prototype.setExpanded = function (b) {
 		this.expandCell.innerText="-";
 		this.iconCell.removeChild(this.iconCell.firstChild);
 		this.iconCell.appendChild(this.base.getImage("folderOpen"));
+		
+		if(this.textCell.lastChild.nodeName=="TABLE") {
+			this.textCell.lastChild.style.display="TABLE";
+			return;
+		}
+		this.menu=new Menu(this.base,{options:{}},this.textCell,this.parent.target);
 	};
 MenuOption.prototype.setCollapsed = function () {
 		this.expandCell.innerText="+";
@@ -301,12 +344,13 @@ MenuOption.prototype.setCollapsed = function () {
 			this.iconCell.removeChild(this.iconCell.firstChild);
 		} catch(ex) {}
 		this.iconCell.appendChild(this.base.getImage("folderClose"));
+		if(this.textCell.lastChild) this.textCell.lastChild.style.display="none";
 	};
 MenuOption.prototype.setDetail = function (t,n) {
-		this.parent.setDetail(this.title||t,n);
+		return this.parent.setDetail(this.title||t,n);
 	};
 MenuOption.prototype.onclick = function (e) {
-		this.base.actions[this.action].exec(this);
+		this.base.actions[this.action].exec(this,this.passing);
 	};
 function Pane(b,p,n) {
 	this.element=css.setClass(createTable(),"Table");
@@ -325,7 +369,7 @@ Pane.prototype.appendChild = function (n) {
 		this.centerNode.appendChild(n);
 	};
 Pane.prototype.setDetail = function (title,n) {
-		this.tabPane.setDetail(title,n);
+		return this.tabPane.setDetail(title,n);
 	};
 function PaneRow(b,p,n) {
 	this.element=css.setClass(document.createElement("TR"),"TableRow");
@@ -364,6 +408,15 @@ TabPane.prototype.hideCurrent = function (e) {
 		this.tabsRow.cells[this.activeTab].style.backgroundColor="";
 		this.activeTab=null;
 	};
+TabPane.prototype.setFullSize = function (n) {
+		var c=this.panesRow.cells[this.activeTab];
+		if(n==undefined) {
+			n=c.lastChild;
+		}
+		n.style.width=c.clientWidth+"px";
+		n.style.height=c.clientHeight+"px";
+		return this;
+	}
 TabPane.prototype.setDetail = function (t,n) {
 		this.hideCurrent();
 		for(var done, i=0; i<this.tabsRow.cells.length;i++ ) {
@@ -384,6 +437,7 @@ TabPane.prototype.setDetail = function (t,n) {
 		this.setCurrent(this.tabsRow.cells.length-1);
 		cp.appendChild(n);
 		if(this.tabsRow.cells.length>1) this.tabsUnhide();
+		return this;
 	};
 TabPane.prototype.tabsHide = function () {
 		this.table.rows[0].style.display = 'none';
@@ -395,11 +449,15 @@ function TextArea(v,o,n) {
 	this.element=document.createElement("textarea");
 	if(o) Object.assign(this.element,o);
 	this.element.irender=this;
-	this.element.value=v; 
+	this.element.value=v;
 	this.appendTo(n);
 }
 TextArea.prototype.appendTo = function (n) {
-	if(n) this.appendChild(n)
+	if(n) {
+		this.element.style.width=n.clientWidth+"px";
+		this.element.style.height=n.clientHeight+"px";
+		n.appendChild(this.element);
+	}
 	return this;
 };
 function Table() {
@@ -527,7 +585,7 @@ function IRender() {
 			action: {id:null,type:["link","pane","svg","googleMap"],url:null,title:null,target:null,pane:null,passing:null}
 			,image: {id:null ,file:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
-			,option: {title:null ,action:null}
+			,menuOption: {title:null ,action:null ,passing:null}
 			,pane: {id:null ,title:null, leftMenu:null,show:null}
 			,window: {title:{"default":"No Title Specified"},footer:{"default":"No Footer Specified"},pane:null}
 		};
@@ -559,7 +617,7 @@ IRender.prototype.addMenu = function(p) {
 		return this;
 	};
 IRender.prototype.addMenuOption = function(m,p) {
-		this.checkProperties(p,"option");
+		this.checkProperties(p,"menuOption");
 		this.menus[m].options.push(p);
 		return this;
 	};

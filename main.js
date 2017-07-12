@@ -17,6 +17,12 @@ app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')))
 //app.use(express.bodyParser());
 //app.use(express.methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
 function errorHandler(err, req, res, next) {
 		console.error('errorHandler '+err+(err.stack?err.stack:""));
 		 if (res.headersSent)
