@@ -252,14 +252,16 @@ function Menu(b,p,n,t) {
 	this.parent=n;
 	this.target=t;
 	this.resizeHover=false;
-	css.setClass(n,"MenuCell");
+	if(!p.subMenu)
+		css.setClass(n,"MenuCell");
 	this.element=css.setClass(document.createElement("TABLE"),"Menu")
 	this.options={};
 	for(var option in p.options){
 		this.addOption(option,p.options[option]);
 	}
 	n.appendChild(this.element);
-	n.addEventListener('mousemove', this.mousemove.bind(this), false);	
+	if(!p.subMenu)
+		n.addEventListener('mousemove', this.mousemove.bind(this), false);	
 }
 Menu.prototype.addOption = function (o,p) {
 		this.options[o] = new MenuOption(this.base,p,this);
@@ -298,7 +300,8 @@ function MenuOption(b,p,parent) {
 	this.element=css.setClass(document.createElement("TR"),"MenuOption");
 	this.expandCell=document.createElement("TD");
 	this.iconCell=document.createElement("TD");
-	this.textCell=css.setClass(document.createElement("TD"),"MenuText");
+//	this.textCell=css.setClass(document.createElement("TD"),"MenuText");
+	this.textCell=document.createElement("TD");
 	this.element.iRender= p;
 	this.element.addEventListener('click', this.onclick.bind(this), false);
 	switch(p.action) {
@@ -312,7 +315,10 @@ function MenuOption(b,p,parent) {
 		default:
 			this.iconCell.appendChild(b.getImage(p.image||"file"));
 	}
-	this.textCell.innerText=this.title;
+	this.textA=css.setClass(document.createElement("a"),"MenuText");
+	this.textA.innerText=this.title;
+	this.textCell.appendChild(this.textA);
+//	this.textCell.innerText=this.title;
 	this.element.appendChild(this.expandCell);
 	this.element.appendChild(this.iconCell);
 	this.element.appendChild(this.textCell);
@@ -338,7 +344,7 @@ MenuOption.prototype.setExpanded = function (b) {
 			return;
 		}
 		if (!("menu" in this.passing)) throw Error("menu not specified in passing");
-		this.menu=new Menu(this.base,this.base.menus[this.passing.menu],this.textCell,this.parent.target);
+		this.menu=new Menu(this.base,Object.assign({subMenu:true},this.base.menus[this.passing.menu]),this.textCell,this.parent.target);
 	};
 MenuOption.prototype.setCollapsed = function () {
 		this.expandCell.innerText="+";
@@ -346,7 +352,7 @@ MenuOption.prototype.setCollapsed = function () {
 			this.iconCell.removeChild(this.iconCell.firstChild);
 		} catch(ex) {}
 		this.iconCell.appendChild(this.base.getImage("folderClose"));
-		if(this.textCell.lastChild) this.textCell.lastChild.style.display="none";
+		if(this.textCell.childElementCount>1) this.textCell.lastChild.style.display="none";
 	};
 MenuOption.prototype.setDetail = function (t,n) {
 		return this.parent.setDetail(this.title||t,n);

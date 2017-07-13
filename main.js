@@ -11,17 +11,18 @@ var express = require('express')
   , app = express();
 // all environments
 app.set('port', (process.env.PORT || process.env.VCAP_APP_PORT || 3000));
+//app.use(function(req, res, next) {
+//		res.header("X-Frame-Options","ALLOW-FROM *");
+//		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+//		next();
+//	});
 app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')))
 //app.use(express.favicon());
 //app.use(express.logger('dev'));
 //app.use(express.bodyParser());
 //app.use(express.methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-});
+
 
 function errorHandler(err, req, res, next) {
 		console.error('errorHandler '+err+(err.stack?err.stack:""));
