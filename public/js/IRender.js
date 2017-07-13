@@ -22,13 +22,10 @@ else
   *  HTMLInputElement.webkitdirectory = boolValue
   *  
    		document.getElementById("files").addEventListener("change", function(event) {
-   		  event.target.webkitEntries.forEach(function(entry) {
+   		  	event.target.webkitEntries.forEach(function(entry) {
    		  });
    		});
-   	  var openFile = function(event) {
 
-   		
-   		
   *  
   */
   	
@@ -104,8 +101,6 @@ function Action (b,p) {
 		throw Error(this.type+" action not valid");	
 	}
 };
-Action.prototype.exec_floatingPane = function (e) {
-	};
 Action.prototype.exec_fileReader = function (e) {
 	    var thisObject=this
 	    	,request=new XMLHttpRequest();
@@ -132,6 +127,12 @@ Action.prototype.exec_fileReader = function (e) {
 	    };
 	    reader.readAsDataURL(this.passing);
 */
+	};
+Action.prototype.exec_floatingPane = function (e) {
+		new Error("to be done");
+	};
+Action.prototype.exec_menu = function (e) {
+		new Error("to be done");
 	};
 
 Action.prototype.exec_pane = function (e) {
@@ -251,8 +252,8 @@ function Menu(b,p,n,t) {
 	this.parent=n;
 	this.target=t;
 	this.resizeHover=false;
-	css.setClass(n,"MenuCell")
-	this.element=document.createElement("TABLE");
+	css.setClass(n,"MenuCell");
+	this.element=css.setClass(document.createElement("TABLE"),"Menu")
 	this.options={};
 	for(var option in p.options){
 		this.addOption(option,p.options[option]);
@@ -336,7 +337,8 @@ MenuOption.prototype.setExpanded = function (b) {
 			this.textCell.lastChild.style.display="TABLE";
 			return;
 		}
-		this.menu=new Menu(this.base,{options:{}},this.textCell,this.parent.target);
+		if (!("menu" in this.passing)) throw Error("menu not specified in passing");
+		this.menu=new Menu(this.base,this.base.menus[this.passing.menu],this.textCell,this.parent.target);
 	};
 MenuOption.prototype.setCollapsed = function () {
 		this.expandCell.innerText="+";
@@ -350,6 +352,7 @@ MenuOption.prototype.setDetail = function (t,n) {
 		return this.parent.setDetail(this.title||t,n);
 	};
 MenuOption.prototype.onclick = function (e) {
+		e.stopPropagation()
 		this.base.actions[this.action].exec(this,this.passing);
 	};
 function Pane(b,p,n) {
@@ -522,12 +525,11 @@ function IRenderClass() {
     	this.add("Footer","background-color: LightGrey; width: 100%; text-align: center;");
     	this.add("DetailPane"," width: 100%; overflow: auto;");
     	this.add("MenuCell","vertical-align: top; width: 200px; height: 100%; border-right-style: solid; border-right-color: LightGrey; border-right-width: 5px;");
-    	this.add("Menu","width: 200px; height: 100%; float: left; border-right-style: solid; border-right-color: LightGrey; border-right-width: 5px;");
+    	this.add("Menu","vertical-align: top;");
     	this.add("MenuText:hover","background: LightGrey;");
-    	this.add("MenuOption","height: 20px;");
+    	this.add("MenuOption","height: 20px; vertical-align: top;");
     	this.add("resizeVertical:hover","cursor: ew-resize;");
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");
-//       	this.add("TabDetail","height: 100%; width: 100%; float: left;");
        	this.add("TabDetail","");
     	this.add("TabPaneCell","border-top-style: solid; border-top-color: LightGrey;");
        	this.add("FullLeft","display: inline-block; height: 100%; width: 100%; background-color: white;");
@@ -618,6 +620,7 @@ IRender.prototype.addMenu = function(p) {
 	};
 IRender.prototype.addMenuOption = function(m,p) {
 		this.checkProperties(p,"menuOption");
+		if(!(m in this.menus)) throw Error("menu not found for "+m)
 		this.menus[m].options.push(p);
 		return this;
 	};
