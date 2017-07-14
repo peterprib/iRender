@@ -62,8 +62,6 @@ fireEvent.prototype.getEventClass = function (e) {
 		}
 		throw Error("fireEvent: Couldn't find an event class for event '" + eventName + "'.");
 	};
-
-
 function createDiv () {
 	return css.setClass(document.createElement("DIV"),"FullLeft");
 }
@@ -383,13 +381,13 @@ Pane.prototype.appendChild = function (n) {
 	};
 function PaneFloat(b,p,n) {
 	this.pane=new Pane(b,p,n);
-	css.setClass(this.pane.element);
+	css.setClass(this.pane.element,"PaneFloat");
 //	this.pane.element.style.zIndex=1000
 	this.pane.element.addEventListener('click', this.onclick.bind(this), false);	
 }
-PaneFloat.prototype.destroy = function () {
-	//
-};
+PaneFloat.prototype.close = function () {
+		this.page.close();
+	};
 PaneFloat.prototype.onclick = function (e) {
 	e.stopPropagation();
 };
@@ -552,6 +550,8 @@ function IRenderClass() {
     	document.getElementsByTagName("head")[0].appendChild(this.styleSheet);
     	this.rule=this.styleSheet.sheet.insertRule?this.cssInsertRule:this.cssAddRule;
     	this.add("CellRight","float:right;");
+    	this.add("CellRight:hover","cursor: pointer; filter: invert(100%);");
+    	this.add("CellRight:focus","cursor: pointer; filter: invert(100%);");
     	this.add("HeaderMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center;  padding: 1px; display: table-row;");
     	this.add("Header","background-color: LightGrey; height: 25px; width: 100%; text-align: center; vertical-align:top ;");
     	this.add("FooterMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center; display: table-row;");
