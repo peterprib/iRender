@@ -220,12 +220,6 @@ CenterRow.prototype.appendChild = function (n) {
 CenterRow.prototype.setDetail = function (title,n) {
 	return this.tabPane.setDetail(title,n);
 };
-function Footer (b,p,n,o) {
-	this.element=css.setClass(document.createElement("DIV"),(o&&o.style?o.style:"Footer"));
-	this.element.appendChild(createNode(p.footer||"No Footer Set"));
-	this.parent=n;
-	n.appendChild(this.element);
-}
 function FooterRow(b,p,n,o) {
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"Footer"));
 	n.appendChild(this.element);
@@ -233,20 +227,24 @@ function FooterRow(b,p,n,o) {
 	this.center.appendChild(createNode(p.footer||"No Title Set"));
 	this.element.appendChild(this.center);
 }
-function Header(b,p,n,o) {
-	p.header=this;
-	this.element=css.setClass(document.createElement("DIV"),(o&&o.style?o.style:"Header"));
-	this.element.appendChild(createNode(p.title||"No Title Set"));
-	this.parent=n;
-	n.appendChild(this.element);
-}
 function HeaderRow(b,p,n,o) {
+	this.base=b;
+	Object.assign(this,o,p);
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"HeaderRow"));
 	n.appendChild(this.element);
 	this.center=document.createElement("TD");
 	this.center.appendChild(createNode(p.title||"No Title Set"));
 	this.element.appendChild(this.center);
+	if(p.closable) {
+		this.closeIcon=css.setClass(this.base.getImage("closeIcon"),"CellRight");
+		this.center.appendChild(this.closeIcon);
+		this.closeIcon.addEventListener('click', this.onclickClose.bind(this), false);
+	}
 }
+HeaderRow.prototype.onclickClose = function (e) {
+	e.stopPropagation();
+	this.pane.close(e);
+};
 function Menu(b,p,n,t) {
 	this.base=b;
 	this.parent=n;
@@ -297,10 +295,10 @@ Menu.prototype.find = function (t) {
 function MenuOption(b,p,parent) {
 	this.base=b;
 	Object.assign(this,p);
+	this.actionObject=this.base.actions[this.action];
 	this.element=css.setClass(document.createElement("TR"),"MenuOption");
 	this.expandCell=document.createElement("TD");
 	this.iconCell=document.createElement("TD");
-//	this.textCell=css.setClass(document.createElement("TD"),"MenuText");
 	this.textCell=document.createElement("TD");
 	this.element.iRender= p;
 	this.element.addEventListener('click', this.onclick.bind(this), false);
@@ -310,15 +308,14 @@ function MenuOption(b,p,parent) {
 			break;
 		case "states":
 			this.state=0;
-			this.iconCell.appendChild(this.base.getImage(b.actions[p.action].passing[0].image));
+			this.iconCell.appendChild(this.base.getImage(this.actionObject.passing[0].image));
 			break;
 		default:
 			this.iconCell.appendChild(b.getImage(p.image||"file"));
 	}
 	this.textA=css.setClass(document.createElement("a"),"MenuText");
-	this.textA.innerText=this.title;
+	this.textA.innerText=this.title||this.actionObject.title||"*** no title specifed *** ";
 	this.textCell.appendChild(this.textA);
-//	this.textCell.innerText=this.title;
 	this.element.appendChild(this.expandCell);
 	this.element.appendChild(this.iconCell);
 	this.element.appendChild(this.textCell);
@@ -358,17 +355,24 @@ MenuOption.prototype.setDetail = function (t,n) {
 		return this.parent.setDetail(this.title||t,n);
 	};
 MenuOption.prototype.onclick = function (e) {
-		e.stopPropagation()
-		this.base.actions[this.action].exec(this,this.passing);
+		e.stopPropagation();
+		this.actionObject.exec(this,this.passing);
 	};
 function Pane(b,p,n) {
+	Object.assign(this,p);
 	this.element=css.setClass(createTable(),"Table");
-	var header=(p.hasOwnProperty("header")?p.header:(p.hasOwnProperty("title")?{title:p.title}:null))
+	var header=Object.assign({},p.header,{closable:p.closable ,title:p.title,pane:this});
 	if(header) this.headerRow=new HeaderRow(b,header,this.element,{style:"Header"});
 	this.centerRow=new CenterRow(b,p,this.element);
 	if(p.hasOwnProperty("footer")) this.footerRow=new FooterRow(b,p,this.element,{style:"Footer"});
 	if(n) n.appendChild(this.element);
 }
+Pane.prototype.close = function (e) {
+		if(this.element.iRender) {
+			this.element.iRender.tabPane.close(this.element.iRender.title);
+		}
+		delete this;
+	};
 Pane.prototype.sizeCenter = function () {
 		this.centerNode.style.height= this.element.clientHeight
 				-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
@@ -377,9 +381,18 @@ Pane.prototype.sizeCenter = function () {
 Pane.prototype.appendChild = function (n) {
 		this.centerNode.appendChild(n);
 	};
-Pane.prototype.setDetail = function (title,n) {
-		return this.tabPane.setDetail(title,n);
-	};
+function PaneFloat(b,p,n) {
+	this.pane=new Pane(b,p,n);
+	css.setClass(this.pane.element);
+//	this.pane.element.style.zIndex=1000
+	this.pane.element.addEventListener('click', this.onclick.bind(this), false);	
+}
+PaneFloat.prototype.destroy = function () {
+	//
+};
+PaneFloat.prototype.onclick = function (e) {
+	e.stopPropagation();
+};
 function PaneRow(b,p,n) {
 	this.element=css.setClass(document.createElement("TR"),"TableRow");
 	n.appendChild(this.element);
@@ -393,7 +406,6 @@ function TabPane(b,p,parent) {
 	this.tabsRow=createTableRow(this.tabs);
 	this.panes=css.setClass(createTable(),"Table");
 	this.panesRow=css.setClass(createTableRow(this.panes),"Row");
-	
 	this.table=css.setClass(createTable(2,1),"Table");
 	this.table.rows[0].style.height="30px";
 	this.tabsHide();
@@ -402,6 +414,15 @@ function TabPane(b,p,parent) {
 	css.setClass(this.table.rows[1].cells[0],"TabPaneCell");
 	this.element.appendChild(this.table);
 }
+TabPane.prototype.close = function (t) {
+		var i=this.find(t);
+		this.activeTab=null;
+		this.panesRow.deleteCell(i);
+		this.tabsRow.deleteCell(i);
+		if(this.tabsRow.cells.length<1) return;
+		if(i>=this.tabsRow.cells.length) i--;
+		this.setCurrent(i);
+	};
 TabPane.prototype.onclick = function (e) {
 	this.hideCurrent();
 	this.setCurrent(e.currentTarget.cellIndex);
@@ -425,25 +446,31 @@ TabPane.prototype.setFullSize = function (n) {
 		n.style.width=c.clientWidth+"px";
 		n.style.height=c.clientHeight+"px";
 		return this;
-	}
+};
+TabPane.prototype.find = function (t,f) {
+		for(var i=0; i<this.tabsRow.cells.length;i++ ) {
+			if(this.tabsRow.cells[i].innerText==t) return i
+		}
+		return null
+	};
 TabPane.prototype.setDetail = function (t,n) {
 		this.hideCurrent();
-		for(var done, i=0; i<this.tabsRow.cells.length;i++ ) {
-			if(this.tabsRow.cells[i].innerText==t) {
-				this.activeTab=i;
-				while (this.panesRow.cells[i].firstChild) {
-					this.panesRow.cells[i].removeChild(this.panesRow.cells[i].firstChild);
-				}
-				this.panesRow.cells[i].appendChild(n);
-				this.setCurrent(i);
-				return;
+		var i=this.find(t);
+		if(i!==null) {
+			this.activeTab=i;
+			while (this.panesRow.cells[i].firstChild) {
+				this.panesRow.cells[i].removeChild(this.panesRow.cells[i].firstChild);
 			}
+			this.panesRow.cells[i].appendChild(n);
+			this.setCurrent(i);
+			return;
 		}
 		var ct=css.setClass(createTableCell(this.tabsRow),"Tab")
 			,cp=css.setClass(createTableCell(this.panesRow),"TabDetail");
 		ct.addEventListener('click', this.onclick.bind(this), false);	
 		ct.innerText=t;
 		this.setCurrent(this.tabsRow.cells.length-1);
+		n.iRender={tabPane:this,title:t};
 		cp.appendChild(n);
 		if(this.tabsRow.cells.length>1) this.tabsUnhide();
 		return this;
@@ -457,7 +484,7 @@ TabPane.prototype.tabsUnhide = function () {
 function TextArea(v,o,n) {
 	this.element=document.createElement("textarea");
 	if(o) Object.assign(this.element,o);
-	this.element.irender=this;
+	this.element.iRender=this;
 	this.element.value=v;
 	this.appendTo(n);
 }
@@ -524,6 +551,7 @@ function IRenderClass() {
     	this.styleSheet.id = "IRenderCSS";
     	document.getElementsByTagName("head")[0].appendChild(this.styleSheet);
     	this.rule=this.styleSheet.sheet.insertRule?this.cssInsertRule:this.cssAddRule;
+    	this.add("CellRight","float:right;");
     	this.add("HeaderMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center;  padding: 1px; display: table-row;");
     	this.add("Header","background-color: LightGrey; height: 25px; width: 100%; text-align: center; vertical-align:top ;");
     	this.add("FooterMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center; display: table-row;");
@@ -534,6 +562,9 @@ function IRenderClass() {
     	this.add("Menu","vertical-align: top;");
     	this.add("MenuText:hover","background: LightGrey;");
     	this.add("MenuOption","height: 20px; vertical-align: top;");
+    	this.add("PaneFloat"
+    			,"position:absolute; filter: alpha(opacity=100); -moz-opacity: 1; background-color:white; opacity: 1; padding:0px;"
+    			+"overflow:auto; z-index:99999; background-color:#FFFFFF; border: 1px solid #a4a4a4;")
     	this.add("resizeVertical:hover","cursor: ew-resize;");
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");
        	this.add("TabDetail","");
@@ -594,7 +625,7 @@ function IRender() {
 			,image: {id:null ,file:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,menuOption: {title:null ,action:null ,passing:null}
-			,pane: {id:null ,title:null, leftMenu:null,show:null}
+			,pane: {id:null ,title:null, leftMenu:null,show:null ,closable:null}
 			,window: {title:{"default":"No Title Specified"},footer:{"default":"No Footer Specified"},pane:null}
 		};
 	this.panes={};
@@ -603,6 +634,8 @@ function IRender() {
 	this.images={file:"file.gif",folderOpen:"folderOpen.gif",folderClose:"folderClose.gif"}
 	this.imageBase="images/";
 	this.addAction({id:"folder",type:"folder"});
+	this.addImage({id:"loadingPageIcon",file:"loadingpage_small.gif"});
+	this.addImage({id:"closeIcon",file:"close_s.gif"});
 }
 IRender.prototype.getImage = function(n) {
 		var i = new Image(16,16);
