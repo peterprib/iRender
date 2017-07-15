@@ -126,13 +126,12 @@ Action.prototype.exec_fileReader = function (e) {
 	    reader.readAsDataURL(this.passing);
 */
 	};
-Action.prototype.exec_floatingPane = function (e) {
-		new Error("to be done");
+Action.prototype.exec_floatingPane = function (e,ev,p) {
+		new PaneFloat(this.base,this.base.panes[this.pane],{y:ev.pageY,x:ev.pageX});
 	};
 Action.prototype.exec_menu = function (e) {
 		new Error("to be done");
 	};
-
 Action.prototype.exec_pane = function (e) {
 		var p=new Pane(this.base,this.base.panes[this.pane]);
 		e.setDetail(this.title,p.element);
@@ -352,11 +351,12 @@ MenuOption.prototype.setCollapsed = function () {
 MenuOption.prototype.setDetail = function (t,n) {
 		return this.parent.setDetail(this.title||t,n);
 	};
-MenuOption.prototype.onclick = function (e) {
-		e.stopPropagation();
-		this.actionObject.exec(this,this.passing);
+MenuOption.prototype.onclick = function (ev) {
+		ev.stopPropagation();
+		this.actionObject.exec(this,ev,this.passing);
 	};
 function Pane(b,p,n) {
+	this.base=b;
 	Object.assign(this,p);
 	this.element=css.setClass(createTable(),"Table");
 	var header=Object.assign({},p.header,{closable:p.closable ,title:p.title,pane:this});
@@ -369,6 +369,7 @@ Pane.prototype.close = function (e) {
 		if(this.element.iRender) {
 			this.element.iRender.tabPane.close(this.element.iRender.title);
 		}
+		this.element.parentElement.removeChild(this.element);
 		delete this;
 	};
 Pane.prototype.sizeCenter = function () {
@@ -379,18 +380,25 @@ Pane.prototype.sizeCenter = function () {
 Pane.prototype.appendChild = function (n) {
 		this.centerNode.appendChild(n);
 	};
-function PaneFloat(b,p,n) {
-	this.pane=new Pane(b,p,n);
+function PaneFloat(b,p,o) {
+	this.pane=new Pane(b,Object.assign({},p,{closable:true}),b.floatHandle);
 	css.setClass(this.pane.element,"PaneFloat");
+	this.position(o.x,o.y);
+//	b.floatHandle.appendChild(this.pane.element);
 //	this.pane.element.style.zIndex=1000
-	this.pane.element.addEventListener('click', this.onclick.bind(this), false);	
+//	this.pane.element.addEventListener('click', this.onclick.bind(this), false);	
 }
-PaneFloat.prototype.close = function () {
-		this.page.close();
+PaneFloat.prototype.size = function () {
+		//
 	};
-PaneFloat.prototype.onclick = function (e) {
-	e.stopPropagation();
-};
+PaneFloat.prototype.position = function (x,y) {
+		this.pane.element.style.left=x+"px";
+		this.pane.element.style.top=y+"px";
+	};
+PaneFloat.prototype.close = function () {
+		this.pane.element.parentElement.removeChild(this.pane.element);
+		delete this;
+	};
 function PaneRow(b,p,n) {
 	this.element=css.setClass(document.createElement("TR"),"TableRow");
 	n.appendChild(this.element);
@@ -474,10 +482,10 @@ TabPane.prototype.setDetail = function (t,n) {
 		return this;
 	};
 TabPane.prototype.tabsHide = function () {
-		this.table.rows[0].style.display = 'none';
+		this.table.rows[0].style.display="none";
 	};
 TabPane.prototype.tabsUnhide = function () {
-		this.table.rows[0].style.display = 'table-row';;
+		this.table.rows[0].style.display="table-row";;
 	};
 function TextArea(v,o,n) {
 	this.element=document.createElement("textarea");
@@ -531,6 +539,7 @@ function Window (b,p,n) {
 	this.centerRow=new PaneRow(b,b.panes[p.pane],this.element);	
 	this.footerRow=new FooterRow(b,p,this.element,{style:"FooterMain"});
 	n.append(this.element);
+	b.floatHandle=n;
 //	this.sizeCenter();
 }	
 Window.prototype.sizeCenter = function () {
@@ -562,8 +571,8 @@ function IRenderClass() {
     	this.add("Menu","vertical-align: top;");
     	this.add("MenuText:hover","background: LightGrey;");
     	this.add("MenuOption","height: 20px; vertical-align: top;");
-    	this.add("PaneFloat"
-    			,"position:absolute; filter: alpha(opacity=100); -moz-opacity: 1; background-color:white; opacity: 1; padding:0px;"
+    	this.add("PaneFloat","min-width: 100px; min-height: 100px;"
+    			+"position:absolute; filter: alpha(opacity=100); -moz-opacity: 1; background-color:white; opacity: 1; padding:0px;"
     			+"overflow:auto; z-index:99999; background-color:#FFFFFF; border: 1px solid #a4a4a4;")
     	this.add("resizeVertical:hover","cursor: ew-resize;");
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");

@@ -23,6 +23,7 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 		.addPane({id:"main",title:"Sub Test",leftMenu:"mainMenu",show:"Test Pane1"})
 		.addPane({id:"testPane",title:"Test Pane"})
 		.addPane({id:"testPane2",title:"Test Pane",closable:true})
+		.addPane({id:"floatPane",title:"Floating Pane"})
 		.addMenu({id:"mainMenu"})
 		.addMenuOption("mainMenu",{title:"Test Link",action:"testAction1"})
 		.addMenuOption("mainMenu",{title:"Test Pane1",action:"testAction2"})
@@ -36,12 +37,14 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 		.addMenuOption("mainMenu",{title:"subMenu",action:"folder",passing:{menu:"subMenu"}})
 		.addMenu({id:"subMenu"})
 		.addMenuOption("subMenu",{action:"testAction3"})
+		.addMenuOption("subMenu",{action:"floatPane"})
 		.addMenuOption("subMenu",{title:"States 2",action:"states"})
 		.addMenuOption("subMenu",{title:"SVG 2",action:"svg"})
 		.addAction({id:"fileReader",type:"fileReader",passing:"c:/tmp/"})
 		.addAction({id:"testAction1",title:"Frygma",type:"link",url:"http://frygma.pribonline.com/",target:"main"})
 		.addAction({id:"testAction2",title:"Test Pane",type:"pane",pane:"testPane"})
 		.addAction({id:"testAction3",title:"Test Pane closable",type:"pane",pane:"testPane2"})
+		.addAction({id:"floatPane",title:"Floating Pane",type:"floatingPane",pane:"floatPane"})
 		.addAction({id:"googleMap",title:"Google Map",type:"googleMap",pane:"testPane"})
 		.addAction({id:"states",title:"States",type:"states"
 			,passing:[{image:"folderOpen"},{image:"loadingPage"},{image:"folderClose"}]
