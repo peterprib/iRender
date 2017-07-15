@@ -17,7 +17,15 @@ else
 			}
 			return false;
    		};
-   		
+function coalesce() {
+	for (var a,len=arguments.length, i=0; i<len; i++) {
+		a=arguments[i];
+		if(a===null || a===undefined) continue;
+		return a;
+	}
+	return null;
+ }
+
  /*<input id="files" type="file" webkitdirectory>
   *  HTMLInputElement.webkitdirectory = boolValue
   *  
@@ -127,7 +135,7 @@ Action.prototype.exec_fileReader = function (e) {
 */
 	};
 Action.prototype.exec_floatingPane = function (e,ev,p) {
-		new PaneFloat(this.base,this.base.panes[this.pane],{y:ev.pageY,x:ev.pageX});
+		new PaneFloat(this.base,this.base.panes[this.pane],Object.assign({y:ev.pageY,x:ev.pageX},this.passing));
 	};
 Action.prototype.exec_menu = function (e) {
 		new Error("to be done");
@@ -183,11 +191,11 @@ Action.prototype.exec_svg = function (e) {
 	};
 Action.prototype.exec_googleMap = function (e) {
 		try{
-		    var mapOptions = this.passing||{
+		    var mapOption=coalesce(this.passing,{
 			        center: new google.maps.LatLng(51.5, -0.12),
 			        zoom: 10,
 			        mapTypeId: google.maps.MapTypeId.HYBRID
-			    };
+			    });
 			e.map = new google.maps.Map(e.element, mapOptions);
 		} catch(ex) {
 			this.setCatchError(e,ex);
@@ -203,7 +211,9 @@ function CenterRow(b,p,n,o) {
 	this.centerCell=document.createElement("TD");
 	this.element.appendChild(this.centerCell);
 	this.table=css.setClass(createTable(1,2),"Table");
-	this.tabPane = new TabPane(b,p,this.table.rows[0].cells[1]);
+	if(coalesce(p.tab,true)) {
+			this.tabPane = new TabPane(b,p,this.table.rows[0].cells[1]);
+	}
 	if(p.hasOwnProperty("leftMenu")) {
 		this.menu=new Menu(b,b.menus[p.leftMenu],this.table.rows[0].cells[0],this.tabPane);
 	} else {
@@ -308,10 +318,10 @@ function MenuOption(b,p,parent) {
 			this.iconCell.appendChild(this.base.getImage(this.actionObject.passing[0].image));
 			break;
 		default:
-			this.iconCell.appendChild(b.getImage(p.image||"file"));
+			this.iconCell.appendChild(b.getImage(coalesce(p.image,"file")));
 	}
 	this.textA=css.setClass(document.createElement("a"),"MenuText");
-	this.textA.innerText=this.title||this.actionObject.title||"*** no title specifed *** ";
+	this.textA.innerText=coalesce(this.title,this.actionObject.title,"*** no title specifed *** ");
 	this.textCell.appendChild(this.textA);
 	this.element.appendChild(this.expandCell);
 	this.element.appendChild(this.iconCell);
@@ -349,7 +359,7 @@ MenuOption.prototype.setCollapsed = function () {
 		if(this.textCell.childElementCount>1) this.textCell.lastChild.style.display="none";
 	};
 MenuOption.prototype.setDetail = function (t,n) {
-		return this.parent.setDetail(this.title||t,n);
+		return this.parent.setDetail(coalesce(this.title,t),n);
 	};
 MenuOption.prototype.onclick = function (ev) {
 		ev.stopPropagation();
@@ -372,21 +382,23 @@ Pane.prototype.close = function (e) {
 		this.element.parentElement.removeChild(this.element);
 		delete this;
 	};
-Pane.prototype.sizeCenter = function () {
-		this.centerNode.style.height= this.element.clientHeight
-				-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
-				-(this.footerNode?this.footerNode.element.getBoundingClientRect().Height:0);
-	};
+//Pane.prototype.sizeCenter = function () {
+//		this.centerNode.style.height= this.element.clientHeight
+//				-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
+//				-(this.footerNode?this.footerNode.element.getBoundingClientRect().Height:0);
+//	};
 Pane.prototype.appendChild = function (n) {
-		this.centerNode.appendChild(n);
+		this.centerRow.appendChild(n);
 	};
 function PaneFloat(b,p,o) {
-	this.pane=new Pane(b,Object.assign({},p,{closable:true}),b.floatHandle);
+	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle);
 	css.setClass(this.pane.element,"PaneFloat");
 	this.position(o.x,o.y);
-//	b.floatHandle.appendChild(this.pane.element);
-//	this.pane.element.style.zIndex=1000
-//	this.pane.element.addEventListener('click', this.onclick.bind(this), false);	
+	if(o) {
+		if("message" in o) {
+			this.pane.appendChild(Text(o.message));
+		}
+	}
 }
 PaneFloat.prototype.size = function () {
 		//
@@ -487,6 +499,11 @@ TabPane.prototype.tabsHide = function () {
 TabPane.prototype.tabsUnhide = function () {
 		this.table.rows[0].style.display="table-row";;
 	};
+function Text(t) {
+	var n=document.createElement("a");
+	n.innerText=t;
+	return n;
+}
 function TextArea(v,o,n) {
 	this.element=document.createElement("textarea");
 	if(o) Object.assign(this.element,o);
@@ -531,7 +548,6 @@ function Cell(row) {
 	this.element=document.createElement("TD");
 	row.appendCell(this);
 }
-
 function Window (b,p,n) {
 	this.element=css.setClass(createTable(),"Table");
 	if(p.title) document.title=p.title;
@@ -715,7 +731,7 @@ IRender.prototype.checkProperties = function(o,e) {
 		for(var p in ps) {
 			if(!o.hasOwnProperty(p)) {
 				if(ps[p]!==null) {
-					var d=ps[p]["default"]||null;
+					var d=coalesce(ps[p]["default"],null);
 					if(d == Array.constructor) {
 						o[p] = [];
 					} else if(d == Object.constructor) {
@@ -735,19 +751,19 @@ IRender.prototype.checkProperties = function(o,e) {
 		return this;
 	};
 IRender.prototype.header = function(a,n) {
-		return this.tag("header",a,n||this.window.title||"No Title Set");
+		return this.tag("header",a,coalesce(n,this.window.title,"No Title Set"));
 	};
 IRender.prototype.insertFooter = function(n) {
 		console.log("IRender insertFooter");
 		var h = css.setClass(document.createElement("FOOTER"),"Footer");
-		h.appendChild(this.createNode(this.window.footer||"No Footer Set"));
+		h.appendChild(this.createNode(coalesce(this.window.footer,"No Footer Set")));
 		n.appendChild(h);
         return this;
 	};
 IRender.prototype.insertHeader = function(n) {
 		console.log("IRender insertHeader");
 		var h = css.setClass(document.createElement("HEADER"),"Header");
-		h.appendChild(createNode(this.window.title||"No Title Set"));
+		h.appendChild(createNode(coalesce(this.window.title,"No Title Set")));
 		if(n.childNodes.length>0)
 			n.insertBefore(h,n.childNodes[0]);
 		else
@@ -763,14 +779,12 @@ IRender.prototype.options = function(id,o) {
 			r+=this.tag("option",{label:i},o[i]);
 		return this.tag("select",{id:id},r);
 	};
-
 IRender.prototype.getPaneDetail = function(id,node) {
 //	 	for(var p=node.parentNode;node.name!=="";p=node.parentNode) continue;
 	 	
 	};
-	
 IRender.prototype.setAllNodes = function(c,f) {
-		var f=f||this[c]||null;
+		var f=coalesce(f,this[c],null);
 		if(f===null) return;
 		for(var ns = document.getElementsByClassName(c),nsl=ns.length,i=0;i<nsl;i++)
 			f.apply(this,[ns[i]]);
@@ -778,7 +792,7 @@ IRender.prototype.setAllNodes = function(c,f) {
 	};
 IRender.prototype.setAllProperties = function(t,p,m) {
 		for(var i in p)
-			t[i]=p[i]||this.metadata.window.default[i]||null;
+			t[i]=coalesce(p[i],(m.default?m.default[i]:null));
         return this;
 	};
 IRender.prototype.setWindow = function(p) {
@@ -791,7 +805,7 @@ IRender.prototype.setWindow = function(p) {
 //		return this.input({type:"submit",value:"Submit"});
 //	};
 IRender.prototype.tag = function(tag,a,n) {
-		return "<"+tag+this.attributes(a)+">"+(n||"")+"</"+tag+">";
+		return "<"+tag+this.attributes(a)+">"+coalesce(n,"")+"</"+tag+">";
 	};
 //	module.exports=IRender;
 	

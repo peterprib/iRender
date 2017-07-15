@@ -44,7 +44,8 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 		.addAction({id:"testAction1",title:"Frygma",type:"link",url:"http://frygma.pribonline.com/",target:"main"})
 		.addAction({id:"testAction2",title:"Test Pane",type:"pane",pane:"testPane"})
 		.addAction({id:"testAction3",title:"Test Pane closable",type:"pane",pane:"testPane2"})
-		.addAction({id:"floatPane",title:"Floating Pane",type:"floatingPane",pane:"floatPane"})
+		.addAction({id:"floatPane",title:"Floating Pane",type:"floatingPane",pane:"floatPane"
+			,passing:{message:"These float"}})
 		.addAction({id:"googleMap",title:"Google Map",type:"googleMap",pane:"testPane"})
 		.addAction({id:"states",title:"States",type:"states"
 			,passing:[{image:"folderOpen"},{image:"loadingPage"},{image:"folderClose"}]
