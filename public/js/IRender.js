@@ -222,14 +222,19 @@ function CenterRow(b,p,n,o) {
 		this.table.rows[0].cells[0].style.display = 'none';
 	}
 	this.centerCell.appendChild(this.table);
+	this.detail=this.table.rows[0].cells[1]
 }
+CenterRow.prototype.content = function (c) {
+		css.setClass(createTable(1,2),"Table");
+		this.detail.appendChild(this.content);
+	};
 CenterRow.prototype.appendChild = function (n) {
-	this.table.rows[0].cells[1].appendChild(n);
+		this.table.rows[0].cells[1].appendChild(n);
 //	this.centerCell.appendChild(n);
-};
+	};
 CenterRow.prototype.setDetail = function (title,n) {
-	return this.tabPane.setDetail(title,n);
-};
+		return this.tabPane.setDetail(title,n);
+	};
 function FooterRow(b,p,n,o) {
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"Footer"));
 	n.appendChild(this.element);
@@ -243,7 +248,7 @@ function HeaderRow(b,p,n,o) {
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"HeaderRow"));
 	n.appendChild(this.element);
 	this.center=document.createElement("TD");
-	this.center.appendChild(createNode(" "+p.title+ " "||"No Title Set"));
+	this.center.appendChild(createNode("\u00a0"+(p.title||"No Title Set")+"\u00a0"));
 	this.element.appendChild(this.center);
 	if(p.right) {
 		for(var i in p.right) {

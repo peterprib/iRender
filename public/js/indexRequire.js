@@ -59,7 +59,7 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 			,header:{right:[{image:"edit",action:"svgOptions"}]}
 			})
 		.addPane({id:"svgOptions",title:"SVG Options"})
-		.addAction({id:"svgOptions",title:"SVG Editor",type:"floatingPane",pane:"svgOptions"})
+		.addAction({id:"svgOptions",title:"SVG Options",type:"floatingPane",pane:"svgOptions"})
 		.addPane({id:"svgOptions",title:"SVG Options"
 				,content:
 					[{title:"x",value: ()=>{} }
