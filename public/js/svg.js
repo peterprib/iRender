@@ -439,7 +439,6 @@ try {
     //used as the module export visible to Node.
 }
 
-
 var colors ={
 	  "black": "#000000",
 	  "silver": "#C0C0C0",
