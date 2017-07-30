@@ -24,7 +24,6 @@ function createTableCell(r) {
 function eventDoNothing(ev) {
 	ev.stopPropagation();
 }
-
 function getMousePositionRelative(ev) {
 	var e=ev.currentTarget;
 	return { x: ev.pageX - (e.offsetLeft + e.parentElement.offsetLeft)
@@ -39,7 +38,7 @@ var shapes={
 		,square:{action:"rect",id:"rect",x:0,y:0,width:32,height:32,stroke:"black","stroke-width":4,fill:"yellow"}
 		,ellipse:{action:"ellipse",id:"ellipse",cx:"40",cy:"40",rx:"40",ry:"30",stroke:"yellow","stroke-width":4,fill:"yellow"}
 		,line:{action:"line",id:"line",x1:"0",y1:"0",x2:"40",y2:"30",stroke:"black","stroke-width":4}
-		,star:{action:"polygon",id:"polygon",points:"100,10 40,198 190,78 10,78 160,198",stroke:"purple","stroke-width":1,fill:"yelimellow","fill-rule":"nonzero"}
+		,star:{action:"polygon",id:"polygon",points:"100,10 40,198 190,78 10,78 160,198",stroke:"purple","stroke-width":1,fill:"limellow","fill-rule":"nonzero"}
 	
 /*
 		  <polyline points="20,20 40,25 60,40 80,120 120,140 200,180"
@@ -172,7 +171,10 @@ Form.prototype.setValue = function (i,v) {
 		var e=this.element.rows[i].cells[1].firstChild;
 		switch(e.nodeName) {
 			case "INPUT":
-				if(e.type=="color" && v.substr(0,1)!=="#") v=colors[v]; 
+				if(e.type=="color" && v.substr(0,1)!=="#") {
+					if(!(v in colors)) throw Error("color not found for "+v);
+					v=colors[v];
+				}
 				e.value=v; 
 				return;
 			case "SELECT":
@@ -210,8 +212,15 @@ Form.prototype.setTitle = function (t,v) {
 		return this;
 	};
 Form.prototype.action = function (p) {
+		if(typeof p === 'array') {
+			var span=document.createElement("span");
+			for(var i=0;i<p.length;i++) {
+				span.appendChild(this.action(p[i]));
+			}
+			return span
+		}
 		if(typeof p === 'object') 
-			return this.set(document.createElement(p.action),p,{action:null,title:null});
+			return this.set(document.createElement(p.action),Object.assign(p,{draggable:true}),{action:null,title:null});
 		return createNode(p);
 	};
 Form.prototype.set = function (e,o,r) {
@@ -260,7 +269,9 @@ function Svg(d) {
 	this.svg=document.createElementNS(nsSVG,"svg");
 	this.set(Object.assign({},d,{width:"100%",height:"100%"}));
 	this.element.appendChild(this.svg);
-	this.element.addEventListener('click', this.onclick.bind(this), false)
+	this.loadUseShapes(shapes);
+	this.element.addEventListener('dblclick', this.editFloatingPane.bind(this), false)
+	this.svg.addEventListener('mousedown', this.setMoveSVGObject.bind(this), false);
 //onactivate, onclick, onfocusin, onfocusout, onload, onmousedown, onmousemove, onmouseout, onmouseover, onmouseup
 }
 Svg.prototype.appendTo = function (n) {
@@ -268,7 +279,14 @@ Svg.prototype.appendTo = function (n) {
 		this.parent;
 		return this;
 	};
-Svg.prototype.onclick = function (ev) {
+Svg.prototype.getDef = function () {
+		if(!this.def) {
+			this.def=document.createElementNS(nsSVG, "def");
+			this.svg.appendChild(this.def);
+		}
+		return this.def;
+	};
+Svg.prototype.editFloatingPane = function (ev) {
 		ev.stopPropagation();
 		if(this.floatPane) {
 			this.floatPane.style.display="table";
@@ -323,9 +341,22 @@ Svg.prototype.createFloat = function (title) {
 						this.parent.close();
 					}
 				})
+			.input({title:"",children:[
+						{type:"button",value:"Zoom All",onclick: function(ev) {	this.parent.zoomAll();}}
+						,{type:"button",value:"Zoom +",onclick: function(ev) {	this.parent.zoomIn();}}
+						,{type:"button",value:"Zoom -",onclick: function(ev) {	this.parent.zoomOut();}}
+					]
+				})
 			.setMapping(shapes.square)
 			;
 		this.floatPaneDetail.appendChild(this.form.element);
+	};
+Svg.prototype.loadUseShapes = function (o) {
+		var def=this.getDef(),s;
+		for(var p in o) {
+			s=o[p];
+			def.appendChild(this.drawObject({action:"g",id:p,children:o[p]}));
+		}
 	};
 Svg.prototype.insertShape = function (pos,p) {
 		switch(p.action) {
@@ -335,12 +366,13 @@ Svg.prototype.insertShape = function (pos,p) {
 				p.cy=pos.y;
 				break;
 			case "rect": 
+			case "use": 
 				p.x=pos.x;
 				p.y=pos.y;
 				break;
-			case "rect": 
-				p.x2-=pos.x-px1;
-				p.y2-=pos.y-py1;
+			case "line": 
+				p.x2-=pos.x-p.x1;
+				p.y2-=pos.y-p.y1;
 				p.x1=pos.x;
 				p.y1=pos.y;
 				break;
@@ -369,6 +401,9 @@ Svg.prototype.close = function () {
 		this.floatPane.style.display="none";
 //		this.element.removeChild(this.floatPane);
 //		delete this.floatPane;
+	};
+Svg.prototype.pattern = function (p) {
+		return this.drawObject(Object.assign({action:"pattern"},p));
 	};
 Svg.prototype.positionFixed = function (e,x,y) {
 		e.style.left=x+"px";
@@ -414,6 +449,7 @@ Svg.prototype.drawObject = function (p) {
 				o.setAttributeNS(null, "requiredExtensions", "http://www.w3.org/1999/xhtml");
 				break;
 		}
+		o.style.cursor="move";
 		this.svg.appendChild(o);
 		return o;
 	};
@@ -451,6 +487,7 @@ var colors ={
 	  "fuchsia": "#FF00FF",
 	  "green": "#008000",
 	  "lime": "#00FF00",
+	  "limellow":"#667086",
 	  "olive": "#808000",
 	  "yellow": "#FFFF00",
 	  "navy": "#000080",
@@ -589,3 +626,82 @@ var colors ={
 	  "lightyellow": "#FFFFE0",
 	  "ivory": "#FFFFF0"
 	}
+Svg.prototype.setMoveSVGObject = function (ev) {
+		if(ev.target.nodeName=="svg") return;
+		ev.stopPropagation();
+		ev.preventDefault();
+		this.moveObject=ev.target;
+		this.moveX=ev.clientX;
+		this.moveY=ev.clientY;
+		this.moveObject.addEventListener('mouseout', this.moveSVGObjectReset.bind(this), false);
+		this.moveObject.addEventListener('mouseup', this.moveSVGObjectReset.bind(this), false);
+		this.moveObject.addEventListener('mousemove', this.moveSVGObject.bind(this), false);
+		this.moveObject.addEventListener('click', eventDoNothing.bind(this), false);
+
+/*
+		this.moveTransform=his.moveObject.getAttributeNS(null, "transform");
+		if(this.moveTransform=null) this.moveTransform="matrix(1 0 0 1 0 0)";
+		this.moveMatrix=this.moveTransform.slice(7,-1).split(' ');
+		for(var i=0; i<this.moveMatrix.length; i++) {
+			this.moveMatrix[i] = parseFloat(this.moveMatrix[i]);
+		}
+*/
+	};
+
+Svg.prototype.delta = function (s,e) {
+		return {x:(s.x-e.x),y:(s.y-e.y)}
+	};
+
+Svg.prototype.add2Attr = function (e,o) {
+		for (var p in o) {
+			e.setAttribute(p,parseInt(e.getAttribute(p))+o[p]);
+		}
+	};
+
+Svg.prototype.add2pairs = function (a,x,y) {
+		a=a.trim();
+		for(var v, r="", p=a.split(" "), i=0;i<p.length;i++) {
+			v=p[i].split(",");
+			r+=(parseInt(v[0])+x)+","+(parseInt(v[1])+y)+" ";
+		}
+		return r.trim();
+	};
+	
+Svg.prototype.moveSVGObject = function (ev) {
+		if(!this.moveObject) return;
+		switch(this.moveObject.nodeName) {
+			case "line":
+				this.add2Attr(this.moveObject,{x1:ev.movementX,x2:ev.movementX,y1:ev.movementY,y2:ev.movementY});
+				return;
+			case "rect":
+			case "use": 
+			case "pattern":
+				this.add2Attr(this.moveObject,{x:ev.movementX,y:ev.movementY});
+				return;
+			case "circle":  
+			case "ellipse":  
+				this.add2Attr(this.moveObject,{cx:ev.movementX,cy:ev.movementY});
+				return;
+			case "polygon":  
+			case "polyline":  
+				this.moveObject.setAttribute("points",this.add2pairs(this.moveObject.getAttribute("points"),ev.movementX,ev.movementY));
+				return;
+		}
+/*
+	  var dx = ev.clientX - this.moveX
+	  	,dy = ev.clientY - this.moveY;
+	  this.moveMatrix[4] += dx;
+	  this.moveMatrix[5] += dy;
+	  this.moveObject.setAttributeNS(null, "transform", "matrix(" + moveMatrix.join(' ') + ")");
+	  this.moveX = ev.clientX;
+	  this.moveY = ev.clientY;
+*/
+	};
+Svg.prototype.moveSVGObjectReset = function (ev) {
+    	if(!this.moveObject) return;
+		this.moveObject.removeEventListener('mousemove', this.moveSVGObject.bind(this), false);
+    	this.moveObject.removeEventListener('mouseout', this.moveSVGObjectReset.bind(this), false);
+		this.moveObject.removeEventListener('mouseup', this.moveSVGObjectReset.bind(this), false);
+		this.moveObject.removeEventListener('click', eventDoNothing.bind(this), false);
+		delete this.moveObject;
+	};
