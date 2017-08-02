@@ -62,10 +62,19 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 		.addAction({id:"svgOptions",title:"SVG Options",type:"floatingPane",pane:"svgOptions"})
 		.addPane({id:"svgOptions",title:"SVG Options"
 				,content:
-					[{title:"x",value: ()=>{} }
-					,{title:"y",value: ()=>{} }
-					,{title:"zoomAndPan",list:["magnify","disable"]}
-					,{title:"preserveAspectRatio",options:["none",["x"]]}
+					[{title:"zoomAndPan",action:"select",children:
+						[{action:"option",label:"magnify",value:"magnify"}
+						,{action:"option",label:"disable",value:"disable"}
+						]}
+					,{title:"preserveAspectRatio",action:"select",children:
+						[{action:"option",label:"none",value:"none"}
+						,{action:"option",label:"x",value:"x"}
+						]}
+					,{title:"Zoom",children:
+						[{action:"input",type:"button",value:"Fit Window",onclick: function(ev) {this.parent.zoomAll();}}
+						,{action:"input",type:"button",value:"+",onclick: function(ev) {this.parent.zoomIn();}}
+						,{action:"input",type:"button",value:"-",onclick: function(ev) {this.parent.zoomOut();}}
+						]}
 					]
 				})
 				/*

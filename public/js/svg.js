@@ -90,7 +90,7 @@ Form.prototype.applyFilter = function (f) {
 			if(this.element.rows[i].filterTags) {
 				f=this.element.rows[i].filterTags;
 				for (var c in f) {
-					var t =this.activeFilter.indexOf(f[c]);
+					var t=this.activeFilter.indexOf(f[c]);
 					if(this.activeFilter.indexOf(f[c])<0) {
 						this.element.rows[i].style.display="none";
 						continue row;
@@ -167,13 +167,20 @@ Form.prototype.getValue = function (i) {
 		}
 		console.error("Form getValue unknown: "+e.nodeName)
 	};
+function rgb(r,g,b) {
+	return "#"+("00000"+((r<<16)+(g<<8)+b).toString(16)).substr(-6);
+}
 Form.prototype.setValue = function (i,v) {
 		var e=this.element.rows[i].cells[1].firstChild;
 		switch(e.nodeName) {
 			case "INPUT":
-				if(e.type=="color" && v.substr(0,1)!=="#") {
-					if(!(v in colors)) throw Error("color not found for "+v);
-					v=colors[v];
+				if(e.type=="color" && !v.startsWith("#")) {
+					if(v.startsWith("rgb(")) {
+						v=eval(v);
+					} else {
+						if(!(v in colors)) throw Error("color not found for "+v);
+						v=colors[v];
+					}
 				}
 				e.value=v; 
 				return;
@@ -265,14 +272,12 @@ function Svg(d) {
 	this.element=document.createElement("div");
 	this.element.style.width="100%";
 	this.element.style.height="100%";
-//	this.element.style.border="1px solid";
 	this.svg=document.createElementNS(nsSVG,"svg");
 	this.set(Object.assign({},d,{width:"100%",height:"100%"}));
 	this.element.appendChild(this.svg);
 	this.loadUseShapes(shapes);
 	this.element.addEventListener('dblclick', this.editFloatingPane.bind(this), false)
 	this.svg.addEventListener('mousedown', this.setMoveSVGObject.bind(this), false);
-//onactivate, onclick, onfocusin, onfocusout, onload, onmousedown, onmousemove, onmouseout, onmouseover, onmouseup
 }
 Svg.prototype.appendTo = function (n) {
 		n.appendChild(this.svg);
@@ -294,6 +299,41 @@ Svg.prototype.editFloatingPane = function (ev) {
 			this.createFloat("Edit");
 		}
 		this.positionFixed(this.floatPane,ev.clientX,ev.clientY);
+		if(ev.srcElement.nodeName=="svg") {
+			this.form.applyFilter(["insert",ev.srcElement.nodeName]);
+			return;
+		}
+		this.form.setMapping(this.toJSON(ev.srcElement));
+		this.form.applyFilter(["update",ev.srcElement.nodeName]);
+};
+Svg.prototype.toJSON = function (o) {
+		var n,p,r={action:o.nodeName};
+		for(var i=0;i<o.attributes.length;i++) {
+			p=o.attributes[i];
+			r[p.nodeName]=p.value;
+		}
+		if(o.style) {
+//			r=Object.assign(r,JSON.parse("{"+o.style.csstext.replace(";",",")+"}"));
+			for(i=0;;i++) {
+				if(i in o.style) {
+					p=o.style[i];
+					n=p.split("-");
+					for(var j=1;j<n.length;j++) {
+						n[j]=n[j].charAt(0).toUpperCase()+n[j].substr(1);
+					}
+					r[p]=o.style[n.join("")];
+					continue;
+				}
+				break;
+			}
+		}
+		if(o.children.length) {
+			r.children=[];
+			for(i=0;i<o.children.length;i++) {
+				r.children.push(this.toJSON(o.children[i]));
+			}
+		}
+		return r;
 	};
 Svg.prototype.createFloat = function (title) {
 		this.floatPane=createTable(2,1);
@@ -327,24 +367,31 @@ Svg.prototype.createFloat = function (title) {
 				,onchange: function(ev) {
 						this.shape=ev.target.value;
 						this.setMapping(shapes[this.shape])
-						this.applyFilter(shapes[this.shape].action);
+						this.applyFilter("insert",shapes[this.shape].action);
 					}
-				})
+				},null,["insert"])
 			.input({title:"Radius",type:"number",min:1},"r",["circle"])
-			.input({title:"Fill",type:"color"},"fill")   
 			.input({title:"Stroke",type:"color"},"stroke")
 			.input({title:"Stroke Width",type:"number",min:1,max:10,value:1},"stroke-width")
 			.input({title:"Opacity",type:"range",min:0,max:100,value:50},"opacity") 
+			.input({title:"Fill",type:"color"},"fill")   
+			.input({title:"Fill Opacity",type:"range",min:0,max:100,},"fill-opacity") 
 			.input({title:"",type:"button",value:"Insert"
 					,onclick: function(ev) {
-						this.parent.insertShape({x:ev.offsetX,y:ev.offsetY},Object.assign(this.getMapping(),shapes[this.shape]));
-						this.parent.close();
-					}
-				})
-			.input({title:"",children:[
-						{type:"button",value:"Zoom All",onclick: function(ev) {	this.parent.zoomAll();}}
-						,{type:"button",value:"Zoom +",onclick: function(ev) {	this.parent.zoomIn();}}
-						,{type:"button",value:"Zoom -",onclick: function(ev) {	this.parent.zoomOut();}}
+							this.parent.insertShape({x:ev.offsetX,y:ev.offsetY},Object.assign(this.getMapping(),shapes[this.shape]));
+							this.parent.close();
+						}
+					},null,["insert"])
+			.input({title:"",type:"button",value:"Update"
+					,onclick: function(ev) {
+//							this.parent.insertShape({x:ev.offsetX,y:ev.offsetY},Object.assign(this.getMapping(),shapes[this.shape]));
+							this.parent.close();
+						}
+					},null,["update"])
+			.addItem({title:"Zoom",children:[
+						{action:"input",type:"button",value:"Fit Window",onclick: function(ev) {this.parent.zoomAll();}}
+						,{action:"input",type:"button",value:"+",onclick: function(ev) {this.parent.zoomIn();}}
+						,{action:"input",type:"button",value:"-",onclick: function(ev) {this.parent.zoomOut();}}
 					]
 				})
 			.setMapping(shapes.square)
@@ -659,10 +706,9 @@ Svg.prototype.add2Attr = function (e,o) {
 	};
 
 Svg.prototype.add2pairs = function (a,x,y) {
-		a=a.trim();
-		for(var v, r="", p=a.split(" "), i=0;i<p.length;i++) {
-			v=p[i].split(",");
-			r+=(parseInt(v[0])+x)+","+(parseInt(v[1])+y)+" ";
+		a=a.replace(/,/g," ").trim();
+		for(var r="", p=a.split(" "),i=0;i<p.length;i=i+2) {
+			r+=(parseInt(p[i])+x)+","+(parseInt(p[i+1])+y)+" ";
 		}
 		return r.trim();
 	};
