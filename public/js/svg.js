@@ -29,16 +29,35 @@ function getMousePositionRelative(ev) {
 	return { x: ev.pageX - (e.offsetLeft + e.parentElement.offsetLeft)
 		,y: ev.pageY - (e.offsetTop + e.parentElement.offsetTop)};
 }
-function createNode (nodeDetails) {
+function createNode(nodeDetails) {
 	if(nodeDetails.constructor === String) return document.createTextNode(nodeDetails);
 	throw Error("creadeNode unknown type, "+JSON.stringify(nodeDetails));
 };
+
+function MouseSvg(svgObject) {
+		this.svgObject=svgObject;
+		this.element=svgObject.drawObject(this.svgCursorDetails);
+		this.svgObject.svg.addEventListener('mousemove', this.move.bind(this), false);
+
+	}
+MouseSvg.prototype.svgCursorDetails={action:"g",id:"cursorDetails",draggable:false,"font-size":10,style:"z-index:99999;",children:
+		[{action:"text",x:2 ,y:12 ,draggable:false,children:["x:"]}
+		,{action:"text",x:14,y:12 ,draggable:false,children:["?"]}
+		,{action:"text",x:2 ,y:24,draggable:false,children:["y:"]}
+		,{action:"text",x:14,y:24,draggable:false,children:["?"]}
+		]};
+MouseSvg.prototype.move=function(ev) {
+		this.element.childNodes[1].firstChild.nodeValue=ev.offsetX;
+		this.element.childNodes[3].firstChild.nodeValue=ev.offsetY;
+	};
+
 var shapes={
 		circle: {action:"circle",cx:"40",cy:"40",r:"40",stroke:"black","stroke-width":4,fill:"yellow"}
 		,square:{action:"rect",id:"rect",x:0,y:0,width:32,height:32,stroke:"black","stroke-width":4,fill:"yellow"}
 		,ellipse:{action:"ellipse",id:"ellipse",cx:"40",cy:"40",rx:"40",ry:"30",stroke:"yellow","stroke-width":4,fill:"yellow"}
 		,line:{action:"line",id:"line",x1:"0",y1:"0",x2:"40",y2:"30",stroke:"black","stroke-width":4}
 		,star:{action:"polygon",id:"polygon",points:"100,10 40,198 190,78 10,78 160,198",stroke:"purple","stroke-width":1,fill:"limellow","fill-rule":"nonzero"}
+		,text:{action:"text",id:"text",x:0,y:0,"font-size":100,children:["test text"]}
 	
 /*
 		  <polyline points="20,20 40,25 60,40 80,120 120,140 200,180"
@@ -268,7 +287,8 @@ Form.prototype.set = function (e,o,r) {
 		return e;
 	};
 	
-function Svg(d) {
+function Svg(d,options) {
+	this.options=(options||{});
 	this.element=document.createElement("div");
 	this.element.style.width="100%";
 	this.element.style.height="100%";
@@ -276,6 +296,9 @@ function Svg(d) {
 	this.set(Object.assign({},d,{width:"100%",height:"100%"}));
 	this.element.appendChild(this.svg);
 	this.loadUseShapes(shapes);
+	if(this.options.mouseCoords||true) {
+		this.mouse=new MouseSvg(this);
+	}
 	this.element.addEventListener('dblclick', this.editFloatingPane.bind(this), false)
 	this.svg.addEventListener('mousedown', this.setMoveSVGObject.bind(this), false);
 }
@@ -414,6 +437,8 @@ Svg.prototype.insertShape = function (pos,p) {
 				break;
 			case "rect": 
 			case "use": 
+			case "g": 
+			case "text": 
 				p.x=pos.x;
 				p.y=pos.y;
 				break;
@@ -474,10 +499,12 @@ Svg.prototype.draw = function (p) {
 		this.drawObject(p);
 		return this;
 	};
-Svg.prototype.drawObject = function (p) {
+Svg.prototype.drawObject = function (p,n) {
+		if (p.constructor === String)
+			return n.appendChild(document.createTextNode(p));
 		if(p instanceof Array) {
 			for(var i=0;i<p.length;i++) {
-				this.drawObject(p[i]);
+				this.drawObject(p[i],n);
 			}
 			return;
 		}
@@ -485,6 +512,14 @@ Svg.prototype.drawObject = function (p) {
 		if(o==undefined) throw Error("SVG invalid function "+p.action);
 		for(var a in p){
 			if(a=="action") continue;
+			if(a=="children" && p[a] instanceof Array) {
+				this.drawObject(p[a],o);
+				continue;
+			}
+			if(a instanceof Function) {
+				o.addEventListener((p.substr(0,2)=="on"?p.substr(2):p), a.bind(this), false);
+				continue;
+			}
 			try{
 				o.setAttributeNS(null, a, p[a]);
 			} catch(e) {
@@ -497,7 +532,7 @@ Svg.prototype.drawObject = function (p) {
 				break;
 		}
 		o.style.cursor="move";
-		this.svg.appendChild(o);
+		(n||this.svg).appendChild(o);
 		return o;
 	};
 Svg.prototype.zoomAll = function () {
@@ -675,6 +710,7 @@ var colors ={
 	}
 Svg.prototype.setMoveSVGObject = function (ev) {
 		if(ev.target.nodeName=="svg") return;
+    	if(ev.target.getAttribute("draggable")==="false") return;
 		ev.stopPropagation();
 		ev.preventDefault();
 		this.moveObject=ev.target;
@@ -694,17 +730,17 @@ Svg.prototype.setMoveSVGObject = function (ev) {
 		}
 */
 	};
-
+/*
 Svg.prototype.delta = function (s,e) {
 		return {x:(s.x-e.x),y:(s.y-e.y)}
 	};
-
+*/
 Svg.prototype.add2Attr = function (e,o) {
-		for (var p in o) {
-			e.setAttribute(p,parseInt(e.getAttribute(p))+o[p]);
+		for(var p in o) {
+			if(e.hasAttribute(p))
+				e.setAttribute(p,parseInt(e.getAttribute(p))+o[p]);
 		}
 	};
-
 Svg.prototype.add2pairs = function (a,x,y) {
 		a=a.replace(/,/g," ").trim();
 		for(var r="", p=a.split(" "),i=0;i<p.length;i=i+2) {
@@ -712,7 +748,6 @@ Svg.prototype.add2pairs = function (a,x,y) {
 		}
 		return r.trim();
 	};
-	
 Svg.prototype.moveSVGObject = function (ev) {
 		if(!this.moveObject) return;
 		switch(this.moveObject.nodeName) {
@@ -722,6 +757,8 @@ Svg.prototype.moveSVGObject = function (ev) {
 			case "rect":
 			case "use": 
 			case "pattern":
+			case "g":
+			case "text":
 				this.add2Attr(this.moveObject,{x:ev.movementX,y:ev.movementY});
 				return;
 			case "circle":  
