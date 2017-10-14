@@ -58,7 +58,7 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 		.addPane({id:"svgEditor",title:"SVG Editor"
 			,header:{right:[{image:"edit",action:"svgOptions"}]}
 			})
-		.addPane({id:"svgOptions",title:"SVG Options"})
+//		.addPane({id:"svgOptions",title:"SVG Options"})
 		.addAction({id:"svgOptions",title:"SVG Options",type:"floatingPane",pane:"svgOptions"})
 		.addPane({id:"svgOptions",title:"SVG Options"
 				,content:
@@ -73,7 +73,7 @@ require(["require","svg","IRender"], function (require,Svg,IRender) {
 					,{title:"Zoom",children:
 						[{action:"input",type:"button",value:"Fit Window",onclick: function(ev) {this.parent.zoomAll();}}
 						,{action:"input",type:"button",value:"+",onclick: function(ev) {this.parent.zoomIn();}}
-						,{action:"input",type:"button",value:"-",onclick: function(ev) {this.parent.zoomOut();}}
+						,{action:"input",type:"button",value:"-",onclick: function(ev) {this.getTargetObject().zoomOut();}}
 						]}
 					]
 				})

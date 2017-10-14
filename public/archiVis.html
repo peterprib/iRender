@@ -1,0 +1,303 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>Vis</title>
+  	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.20.1/vis.min.js"></script>
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.20.1/vis.min.css" rel="stylesheet" type="text/css" />
+	<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+	<style type="text/css">
+    .network {
+      width: 600px;
+      height: 400px;
+      border: 1px solid lightgray;
+    }
+  </style>
+</head>
+<body>
+<h1>Archimate</h1><a href="javascript:showhide('visconfig')">config</a>
+<input type="file" id="archiFile" accept="text/xml">
+<div id="network" class="network"></div>
+<div id="visconfig" style="display:none;"></div>
+<script type="text/javascript">
+function showhide(id) {
+	var e=document.getElementById(id);
+	e.style.display=(e.style.display=="block")?"none":"block";
+}
+
+document.querySelector("#archiFile").addEventListener('change',function (evt) {
+				var url
+					,file = evt.target.files[0]
+					,reader = new FileReader();
+				reader.addEventListener("load", function (evt) {
+								console.log("loading file "+file.name)
+								new ArchiModel(evt.target.result);
+							}
+						, false);
+				reader.readAsText(file);
+			}
+		, false)
+
+function XML(data) {
+	if(data) this.getDOMParsed(data);
+}
+XML.prototype.getDOMParsedParse = function (data) {
+		this.parse(data);	
+		return this.xmlDOM;
+	};
+XML.prototype.parse = function (data) {
+		if (window.DOMParser) {
+			var parser=new DOMParser();
+			this.xmlDOM=parser.parseFromString(data,"text/xml");
+	  		if (this.xmlDOM.documentElement.nodeName=="parsererror") throw " xml parser error: "+xmlDOM.documentElement.childNodes[0].nodeValue+ ' xml: '+ data;
+		} else { //try Internet Explorer
+	 		try {
+	 			this.xmlDOM=new ActiveXObject("Microsoft.XMLDOM");
+	 			this.xmlDOM.async="false";
+	 			this.xmlDOM.loadXML(data);
+	 			this.xmlDOM.setProperty("Cache-Control", "no-cache");
+	 			this.xmlDOM.setProperty("SelectionLanguage","XPath");
+	 			this.xmlDOM.setProperty("SelectionNamespaces","xmlns:xhtml='http://www.w3.org/1999/xhtml' xmlns:xsl='http://www.w3.org/1999/XSL/Transform' xmlns:xs='http://www.w3.org/2001/XMLSchema'");  
+			} catch(e) {
+				throw 'Load xml failure: ' + e + ' xml: '+ data;
+			}
+  		}
+		this.baseNode=this.xmlDOM.firstChild;
+  		return this;
+	};
+XML.prototype.getDOMParsed = function (data,callBackFunction,thisObject,argArray) {
+		switch(typeof data) {
+	 		case 'string':
+	 			break;
+	 		case 'object':
+	 			return data;
+	 		default:
+	 			throw "getDOMParsed unknown data type: " + typeof data ; 
+		}
+		if(data.indexOf('<')<0) {
+			var xhttp = null;
+			if (window.XMLHttpRequest) {
+				xhttp=new window.XMLHttpRequest();
+			} else{
+				xhttp=new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			xhttp.withCredentials = "true";
+			if (callBackFunction) {
+		    	xhttp.onreadystatechange= function() { 
+				if (xhttp.readyState==4)
+    	    		if (xhttp.status==200) {
+    	    			callBackFunction.apply(thisObject,[this.getDOMParsedParse(xhttp.responseText)].concat(argArray));
+        	    	}
+				}
+				xhttp.open("GET",data );
+				return;
+			}
+			try{
+				xhttp.open("GET",data,false);
+			} catch(e) {
+				throw 'Load xml failure: ' + e + ' xml: '+ data+ ' may be a browser compatiblility issue';
+			}
+			xhttp.setRequestHeader('Content-Type', 'application/xml');  
+			xhttp.setRequestHeader('Access-Control-Allow-Origin', '*');
+			xhttp.setRequestHeader("If-Modified-Since", new Date(0));
+			xhttp.setRequestHeader("Cache-Control","no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0 ");
+			xhttp.setRequestHeader("Pragma","no-cache");
+			xhttp.setRequestHeader("Expires","-1");
+//			xhttp.channel.loadFlags |= Components.interfaces.nsIRequest.LOAD_BYPASS_CACHE;
+			xhttp.send();
+			if (callBackFunction!=null) return null;
+			data= xhttp.responseText; 
+		}
+		if(callBackFunction) {
+			callBackFunction.apply(thisObject,[this.getDOMParsedParse(xhttp.responseText)].concat(argArray));
+		} else {
+			return this.getDOMParsedParse(data);
+		}
+	};
+XML.prototype.defaultResolver = function (ns) {
+		    return 'http://www.opengroup.org/xsd/archimate/3.0/';
+	};
+XML.prototype.getNodesByXPath = function () {
+		if(arguments.length>1) {
+			var node=arguments[0],xPath=arguments[1];
+		} else {
+			var node=this.xmlDOM,xPath=arguments[0];
+		}
+		var selectedNodes = null;
+		if (window.ActiveXObject!=undefined) {    // IE
+			try{
+				var nodes=node.selectNodes(xPath);
+				selectedNodes=[];
+				for (i=0;i<nodes.length;i++)
+					selectedNodes.push(nodes[i].childNodes[0]);
+			}
+			catch (e) {throw "Xpath issue, path "+xPath+" error: " + (typeof(e)=="object"?e.name + ": " +e.description:e);}
+		} else if (document.implementation && document.implementation.createDocument) {
+			selectedNodes=[];
+			var xpe = new XPathEvaluator();
+//			var nsResolver = this.xmlDOM.createNSResolver( this.xmlDOM.ownerDocument == null ? this.xmlDOM.documentElement : this.xmlDOM.ownerDocument.documentElement);
+//			try{var iterator=xpe.evaluate(xPath,node,nsResolver,XPathResult.ANY_TYPE,null);}
+			try{var iterator=xpe.evaluate(xPath,node,this.defaultResolver,XPathResult.ANY_TYPE,null);}
+			catch (e) {
+				throw "Xpath issue, path "+xPath+" error: " + (typeof(e)=="object"?e.name + ": " +e.description:e);
+			}
+  			while(item = iterator.iterateNext()) {selectedNodes.push(item);}
+   		} else {
+   			throw 'Browse cannot handle xpath';
+   		}
+		return selectedNodes;
+	};
+XML.prototype.callNodesByXPath = function () {
+		if(typeof arguments[0]=="string") {
+			var aObject=arguments[1]
+				,aFunction=arguments[2]
+				,argArray=arguments[3]
+				,nodes=this.getNodesByXPath(arguments[0]);
+		} else {
+			var aObject=arguments[2]
+				,aFunction=arguments[3]
+				,argArray=arguments[4]
+				,nodes=this.getNodesByXPath(arguments[0],arguments[1]);
+		}
+		for(var i=0;i<nodes.length;i++) 
+			aFunction.apply(aObject,[nodes[i]].concat(argArray));
+	};
+XML.prototype.debugNodesByXPath = function (node,xpath) {
+		console.log(xpath+" start");
+		this.callNodesByXPath(node,xpath,null
+				,function(node) {
+						console.log(xpath+" element: "+node.localName+ " prefix: "+node.prefix);
+					}
+			);
+		console.log(xpath+" end");
+	};
+	
+var nodes = new vis.DataSet({})
+	,edges = new vis.DataSet({})
+	,network = new vis.Network(document.getElementById('network'), {nodes: nodes,edges: edges},  {});
+
+function Icons() {this.list={}} 
+Icons.prototype.add = function (id,unicode) {
+		this.list[id]={unicode:unicode};
+		return this;
+	};
+Icons.prototype.getVisIcon = function (d) {
+		return {shape:"icon",icon:{face:"FontAwesome",code:unescape('%u' + d.unicode),size: 50}};
+	};
+Icons.prototype.getVisIcons = function () {
+		var r={};
+		for (var p in this.list) {
+			r[p]=this.getVisIcon(this.list[p]);
+		}
+		return r;
+	};	
+var icons=new Icons().add("afolder","f114").add("folderopen","f115")
+			.add("BusinessActor","f2c0").add("BusinessProcess","f110")
+			.add("usergroup","f007");
+//var FontAwesomeIcon = {
+//	users:{shape: 'icon',icon:{face:'FontAwesome',code:'\uf007',size: 50,color:'#aa00ff'}}
+//	};	
+network.setOptions(
+	{nodes:
+		{shape:"box"}
+	,groups: icons.getVisIcons()
+	,interaction: {
+        navigationButtons: true,
+        keyboard: true
+      }
+    ,configure: {
+        container: document.getElementById('visconfig')
+      }
+    ,layout: {
+        hierarchical: {
+            direction: "LR"
+        }
+    }
+	});
+var guid=0;
+function ArchiModel(data) {this.load(data);}
+ArchiModel.prototype.load = function (data) {
+		this.archi=new XML(data);
+		if(this.archi.baseNode.nodeName!="model") throw Error("base element not model");
+		nodes.add({xmlNode:this.archi.baseNode,id:++guid
+			,label:this.archi.baseNode.nodeName
+			,first:true
+			,level:0});
+		this.archi.callNodesByXPath(this.archi.baseNode,"./archi:name",this
+				,function(node,guid) {
+						nodes.update({id:guid,title:node.textContent,label:"<model>\n"+node.textContent});
+					}
+				,[guid]
+			);
+	this.archi.callNodesByXPath(this.archi.baseNode,"./archi:organizations/archi:item",this,this.processFolder,[guid,1]);
+}
+ArchiModel.prototype.processFolder = function (node,parent,level) {
+		var l=this.archi.getNodesByXPath(node,"./archi:label");
+		if(l.length==0) {
+			var id=this.archi.getNodesByXPath(node,"./@identifierRef")
+			this.archi.callNodesByXPath(node
+					,"/archi:model/archi:elements/archi:element[@identifier='"+id[0].textContent+"']"
+					,this,this.addElement,[parent,level]);
+//			this.archi.debugNodesByXPath(node,"/archi:model/archi:elements/archi:element[@identifier='"+id[0].textContent+"']");
+			return;
+		}
+		var id=++guid;
+		nodes.add({xmlNode:node
+			,id:id
+			,font:{multi:true, size: 20 }
+			,label:l[0].textContent
+			,level:level
+			,group:"folder"
+			,title:"<i class='fa fa-folder-o' aria-hidden='true'>&nbsp;"+l[0].textContent+"</i>"});
+		edges.add({from:parent ,to:id});
+		this.archi.callNodesByXPath(node,"./archi:item",this
+				,this.processFolder
+				,[id,++level]
+			);
+	};
+ArchiModel.prototype.elementTitle = function (node) {
+		return node.textContent+"<i class='fa fa-folder-o' aria-hidden='true'></i>"
+	};
+ArchiModel.prototype.elementIcon = function (node) {
+		return node.textContent+"<i class='fa fa-folder-o' aria-hidden='true'></i>"
+	};
+ArchiModel.prototype.addElement = function (node,parent,level) {
+		var id=++guid,t=node.getAttribute("xsi:type");
+		var n=this.archi.getNodesByXPath(node,"./archi:name[position()=1]");
+		nodes.add({xmlNode:node,id:id
+//			,font: {multi:'html'}
+//			,label: "<"+t+">"+ "\n"+n[0].textContent
+//			,label: n[0].textContent
+			,image: this.elementImage(n[0].textContent)
+			,shape: 'image'
+			,title: n[0].textContent
+			,group:t
+			,level:level});
+		edges.add({from:parent,to:id});
+	};
+ArchiModel.prototype.urlSvgSource = function (svg) {
+		return "data:image/svg+xml;charset=utf-8,"+ encodeURIComponent(svg);
+	};
+ArchiModel.prototype.elementImage = function (text) {
+		return this.urlSvgSource('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="65">' 
+			+ '<rect x="0" y="0" width="100%" height="100%" fill="#7890A7" stroke-width="20" stroke="#ffffff" ></rect>'
+			+ 	'<foreignObject x="15" y="10" width="100%" height="100%">'
+			+ 		'<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:20px">'
+			+ 			text
+			+			'<a href="javascript:altert(\'text\')">test</a>'
+			+ 		'</div>'
+			+ 	'</foreignObject>'
+			+ '</svg>');
+	};
+/*
+ * image: url, shape: 'image'
+	 url = "data:image/svg+xml;charset=utf-8,"+ encodeURIComponent(svg);
+	 svg = 
+ */
+	
+</script>
+
+</body>
+</html>

@@ -132,6 +132,10 @@ Form.prototype.applyFilter = function (f) {
 //Form.prototype.button = function (p,t) {
 		//this.action(Object.assign({action:"input",type:"button"},p),t)
 //	};
+
+Form.prototype.getTargetObject = function () {
+		return this.getTargetObject();
+	};
 Form.prototype.input = function (p,m,t) {
 		return this.addItem(Object.assign({action:"input"},p),m,t);
 	};
@@ -318,20 +322,16 @@ Action.prototype.exec_fileReader = function (e) {
 	    request.open("GET", "file:"+this.passing);
 	    request.withCredentials = "true";
     	request.send();
-/*
-		var reader = new FileReader()
-			,thisObject=this;
-	    reader.onload = function(){
-			e.setDetail(thisObject.title,new TextArea((reader.result)).element);
-	    };
-	    reader.onerror = function(ex){
-	    	thisObject.setCatchError(e,ex)
-	    };
-	    reader.readAsDataURL(this.passing);
-*/
 	};
 Action.prototype.exec_floatingPane = function (e,ev,p) {
-		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing));
+		if(this.passing) {
+			if(this.passing) {
+				if(this.passing.target instanceof Object) {
+					var target=this.passing.target;
+				}
+			}
+		} 
+		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing),target);
 	};
 Action.prototype.exec_menu = function (e) {
 		new Error("to be done");
@@ -403,7 +403,8 @@ Action.prototype.setCatchError = function (e,ex) {
 		console.error("IRender action "+this.type+" error: "+ex+"\nStack: "+ex.stack);	
 		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack).element).setFullSize();
 	};
-function CenterRow(b,p,n,o) {
+function CenterRow(parent,b,p,n,o) {
+	this.parent=parent;
 	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
 	n.appendChild(this.element);
 	this.centerCell=document.createElement("TD");
@@ -420,6 +421,12 @@ function CenterRow(b,p,n,o) {
 	this.centerCell.appendChild(this.table);
 	this.detail=this.table.rows[0].cells[1]
 }
+CenterRow.prototype.getTargetObject = function () {
+	return this.parent.getTargetObject();
+};
+CenterRow.prototype.getDetailObject = function () {
+		return this.detail.firstChild.iRender;
+	};
 CenterRow.prototype.content = function (c) {
 		this.content=new Form(this).addItem(c);
 		this.detail.appendChild(this.content.element);
@@ -585,14 +592,15 @@ MenuOption.prototype.onclick = function (ev) {
 		ev.stopPropagation();
 		this.actionObject.exec(this,ev,this.passing);
 	};
-function Pane(b,p,n) {
+function Pane(b,p,n,t) {
 	this.base=b;
+	this.target=t;
 	Object.assign(this,p);
 	this.element=css.setClass(createTable(),"Table");
 	this.element.IRender=this;
 	var header=Object.assign({},p.header,{closable:p.closable ,title:p.title,pane:this});
 	if(header) this.headerRow=new HeaderRow(b,header,this.element,{style:"Header"});
-	this.centerRow=new CenterRow(b,p,this.element);
+	this.centerRow=new CenterRow(this,b,p,this.element);
 	if(p.hasOwnProperty("footer")) this.footerRow=new FooterRow(b,p,this.element,{style:"Footer"});
 	if(n) n.appendChild(this.element);
 	if(p.hasOwnProperty("content")) this.centerRow.content(p.content);
@@ -612,9 +620,15 @@ Pane.prototype.close = function (e) {
 Pane.prototype.appendChild = function (n) {
 		this.centerRow.appendChild(n);
 	};
+Pane.prototype.getDetailObject = function () {
+		return this.centerRow.getDetailObject();
+	};
+Pane.prototype.getTarget = function () {
+		return this.target||this;
+	};
 Pane.prototype.setDetail = Pane.prototype.appendChild;
-function PaneFloat(b,p,o) {
-	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle);
+function PaneFloat(b,p,o,t) {
+	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle,t);
 	css.setClass(this.pane.element,"PaneFloat");
 	this.position(o.x,o.y);
 	if(o) {
