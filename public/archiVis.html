@@ -17,11 +17,12 @@
   </style>
 </head>
 <body>
-<h1>Archimate</h1><a href="javascript:showhide('visconfig')">config</a>
+<h1>Archimate</h1><a href="javascript:showhide('visconfig')">config</a> <a href="javascript:archiModel.buildDiagram();">rebuild</a>
 <input type="file" id="archiFile" accept="text/xml">
 <div id="network" class="network"></div>
 <div id="visconfig" style="display:none;"></div>
 <script type="text/javascript">
+var archiModel;
 function showhide(id) {
 	var e=document.getElementById(id);
 	e.style.display=(e.style.display=="block")?"none":"block";
@@ -33,21 +34,23 @@ document.querySelector("#archiFile").addEventListener('change',function (evt) {
 					,reader = new FileReader();
 				reader.addEventListener("load", function (evt) {
 								console.log("loading file "+file.name)
-								new ArchiModel(evt.target.result);
+								archiModel = new ArchiModel(evt.target.result);
 							}
 						, false);
 				reader.readAsText(file);
 			}
 		, false)
 
-function XML(data) {
+function XML(data,namespaces) {
+	this.namespaces=namespaces;
 	if(data) this.getDOMParsed(data);
 }
-XML.prototype.getDOMParsedParse = function (data) {
-		this.parse(data);	
+XML.prototype.getDOMParsedParse = function (data,namespaces) {
+		this.parse(data,namespaces);	
 		return this.xmlDOM;
 	};
-XML.prototype.parse = function (data) {
+XML.prototype.parse = function (data,namespaces) {
+		if(namespaces) this.namespaces=namespaces;
 		if (window.DOMParser) {
 			var parser=new DOMParser();
 			this.xmlDOM=parser.parseFromString(data,"text/xml");
@@ -111,13 +114,16 @@ XML.prototype.getDOMParsed = function (data,callBackFunction,thisObject,argArray
 			data= xhttp.responseText; 
 		}
 		if(callBackFunction) {
-			callBackFunction.apply(thisObject,[this.getDOMParsedParse(xhttp.responseText)].concat(argArray));
+			callBackFunction.apply(thisObject,[this.getDOMParsedParse(data)].concat(argArray));
 		} else {
 			return this.getDOMParsedParse(data);
 		}
 	};
-XML.prototype.defaultResolver = function (ns) {
-		    return 'http://www.opengroup.org/xsd/archimate/3.0/';
+XML.prototype.nsResolver = function (ns) {
+		try{
+			return this.prototype.namespaces[ns]||this.prototype.nsResolverXML(ns);
+		} catch (e) {}
+		return this.prototype.nsResolverXML(ns);
 	};
 XML.prototype.getNodesByXPath = function () {
 		if(arguments.length>1) {
@@ -136,10 +142,12 @@ XML.prototype.getNodesByXPath = function () {
 			catch (e) {throw "Xpath issue, path "+xPath+" error: " + (typeof(e)=="object"?e.name + ": " +e.description:e);}
 		} else if (document.implementation && document.implementation.createDocument) {
 			selectedNodes=[];
-			var xpe = new XPathEvaluator();
-//			var nsResolver = this.xmlDOM.createNSResolver( this.xmlDOM.ownerDocument == null ? this.xmlDOM.documentElement : this.xmlDOM.ownerDocument.documentElement);
-//			try{var iterator=xpe.evaluate(xPath,node,nsResolver,XPathResult.ANY_TYPE,null);}
-			try{var iterator=xpe.evaluate(xPath,node,this.defaultResolver,XPathResult.ANY_TYPE,null);}
+			if(this.xpe==null) {
+				this.xpe = new XPathEvaluator();
+				this.nsResolver.prototype.nsResolverXML = this.xmlDOM.createNSResolver( this.xmlDOM.ownerDocument == null ? this.xmlDOM.documentElement : this.xmlDOM.ownerDocument.documentElement);
+				this.nsResolver.prototype.namespaces = this.namespaces;
+			}
+			try{var iterator=this.xpe.evaluate(xPath,node,this.nsResolver,XPathResult.ANY_TYPE,null);}
 			catch (e) {
 				throw "Xpath issue, path "+xPath+" error: " + (typeof(e)=="object"?e.name + ": " +e.description:e);
 			}
@@ -196,9 +204,7 @@ Icons.prototype.getVisIcons = function () {
 var icons=new Icons().add("afolder","f114").add("folderopen","f115")
 			.add("BusinessActor","f2c0").add("BusinessProcess","f110")
 			.add("usergroup","f007");
-//var FontAwesomeIcon = {
-//	users:{shape: 'icon',icon:{face:'FontAwesome',code:'\uf007',size: 50,color:'#aa00ff'}}
-//	};	
+
 network.setOptions(
 	{nodes:
 		{shape:"box"}
@@ -219,15 +225,22 @@ network.setOptions(
 var guid=0;
 function ArchiModel(data) {this.load(data);}
 ArchiModel.prototype.load = function (data) {
-		this.archi=new XML(data);
+		this.archi=new XML(data,{archi:"http://www.opengroup.org/xsd/archimate/3.0/"});
+		this.buildDiagram();
+		network = new vis.Network(document.getElementById('network'), {nodes: this.nodes,edges: this.edges},  {});
+	};
+ArchiModel.prototype.buildDiagram = function () {
+		this.nodes = new vis.DataSet({});
+		this.edges = new vis.DataSet({});
+		
 		if(this.archi.baseNode.nodeName!="model") throw Error("base element not model");
-		nodes.add({xmlNode:this.archi.baseNode,id:++guid
+		this.nodes.add({xmlNode:this.archi.baseNode,id:++guid
 			,label:this.archi.baseNode.nodeName
 			,first:true
 			,level:0});
 		this.archi.callNodesByXPath(this.archi.baseNode,"./archi:name",this
 				,function(node,guid) {
-						nodes.update({id:guid,title:node.textContent,label:"<model>\n"+node.textContent});
+						this.nodes.update({id:guid,title:node.textContent,label:"<model>\n"+node.textContent});
 					}
 				,[guid]
 			);
@@ -244,14 +257,14 @@ ArchiModel.prototype.processFolder = function (node,parent,level) {
 			return;
 		}
 		var id=++guid;
-		nodes.add({xmlNode:node
+		this.nodes.add({xmlNode:node
 			,id:id
 			,font:{multi:true, size: 20 }
 			,label:l[0].textContent
 			,level:level
 			,group:"folder"
 			,title:"<i class='fa fa-folder-o' aria-hidden='true'>&nbsp;"+l[0].textContent+"</i>"});
-		edges.add({from:parent ,to:id});
+		this.edges.add({from:parent ,to:id});
 		this.archi.callNodesByXPath(node,"./archi:item",this
 				,this.processFolder
 				,[id,++level]
@@ -266,7 +279,7 @@ ArchiModel.prototype.elementIcon = function (node) {
 ArchiModel.prototype.addElement = function (node,parent,level) {
 		var id=++guid,t=node.getAttribute("xsi:type");
 		var n=this.archi.getNodesByXPath(node,"./archi:name[position()=1]");
-		nodes.add({xmlNode:node,id:id
+		this.nodes.add({xmlNode:node,id:id
 //			,font: {multi:'html'}
 //			,label: "<"+t+">"+ "\n"+n[0].textContent
 //			,label: n[0].textContent
@@ -275,7 +288,7 @@ ArchiModel.prototype.addElement = function (node,parent,level) {
 			,title: n[0].textContent
 			,group:t
 			,level:level});
-		edges.add({from:parent,to:id});
+		this.edges.add({from:parent,to:id});
 	};
 ArchiModel.prototype.urlSvgSource = function (svg) {
 		return "data:image/svg+xml;charset=utf-8,"+ encodeURIComponent(svg);
@@ -291,13 +304,7 @@ ArchiModel.prototype.elementImage = function (text) {
 			+ 	'</foreignObject>'
 			+ '</svg>');
 	};
-/*
- * image: url, shape: 'image'
-	 url = "data:image/svg+xml;charset=utf-8,"+ encodeURIComponent(svg);
-	 svg = 
- */
-	
-</script>
 
+</script>
 </body>
 </html>
