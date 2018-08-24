@@ -22,6 +22,7 @@
     ,"vis":"*"
 	,"font-awesome":"*"
 	,"bootstrap":"*"
+	,"browsersetup":"https://github.com/pribtech/browserSetup.git"
 	}
 ,"scripts": { "start": "node main.js"}
 }

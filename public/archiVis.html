@@ -201,40 +201,40 @@ Icons.prototype.getVisIcons = function () {
 		}
 		return r;
 	};	
-var icons=new Icons().add("afolder","f114").add("folderopen","f115")
-			.add("BusinessActor","f2c0").add("BusinessProcess","f110")
-			.add("usergroup","f007");
 
-network.setOptions(
-	{nodes:
-		{shape:"box"}
-	,groups: icons.getVisIcons()
-	,interaction: {
-        navigationButtons: true,
-        keyboard: true
-      }
-    ,configure: {
-        container: document.getElementById('visconfig')
-      }
-    ,layout: {
-        hierarchical: {
-            direction: "LR"
-        }
-    }
-	});
-var guid=0;
 function ArchiModel(data) {this.load(data);}
 ArchiModel.prototype.load = function (data) {
+		this.guid=0;
 		this.archi=new XML(data,{archi:"http://www.opengroup.org/xsd/archimate/3.0/"});
 		this.buildDiagram();
-		network = new vis.Network(document.getElementById('network'), {nodes: this.nodes,edges: this.edges},  {});
+		this.network = new vis.Network(document.getElementById('network'), {nodes: this.nodes,edges: this.edges},  {});
+		var icons=new Icons().add("afolder","f114").add("folderopen","f115")
+			.add("BusinessActor","f2c0").add("BusinessProcess","f110")
+			.add("usergroup","f007");
+		this.network.setOptions(
+				{nodes:
+					{shape:"box"}
+				,groups: icons.getVisIcons()
+				,interaction: {
+			        navigationButtons: true,
+			        keyboard: true
+			      }
+			    ,configure: {
+			        container: document.getElementById('visconfig')
+			      }
+			    ,layout: {
+			        hierarchical: {
+			            direction: "LR"
+			        }
+			    }
+			});
 	};
 ArchiModel.prototype.buildDiagram = function () {
 		this.nodes = new vis.DataSet({});
 		this.edges = new vis.DataSet({});
 		
 		if(this.archi.baseNode.nodeName!="model") throw Error("base element not model");
-		this.nodes.add({xmlNode:this.archi.baseNode,id:++guid
+		this.nodes.add({xmlNode:this.archi.baseNode,id:++this.guid
 			,label:this.archi.baseNode.nodeName
 			,first:true
 			,level:0});
@@ -242,9 +242,9 @@ ArchiModel.prototype.buildDiagram = function () {
 				,function(node,guid) {
 						this.nodes.update({id:guid,title:node.textContent,label:"<model>\n"+node.textContent});
 					}
-				,[guid]
+				,[this.guid]
 			);
-	this.archi.callNodesByXPath(this.archi.baseNode,"./archi:organizations/archi:item",this,this.processFolder,[guid,1]);
+	this.archi.callNodesByXPath(this.archi.baseNode,"./archi:organizations/archi:item",this,this.processFolder,[this.guid,1]);
 }
 ArchiModel.prototype.processFolder = function (node,parent,level) {
 		var l=this.archi.getNodesByXPath(node,"./archi:label");
@@ -256,7 +256,7 @@ ArchiModel.prototype.processFolder = function (node,parent,level) {
 //			this.archi.debugNodesByXPath(node,"/archi:model/archi:elements/archi:element[@identifier='"+id[0].textContent+"']");
 			return;
 		}
-		var id=++guid;
+		var id=++this.guid;
 		this.nodes.add({xmlNode:node
 			,id:id
 			,font:{multi:true, size: 20 }
@@ -277,7 +277,7 @@ ArchiModel.prototype.elementIcon = function (node) {
 		return node.textContent+"<i class='fa fa-folder-o' aria-hidden='true'></i>"
 	};
 ArchiModel.prototype.addElement = function (node,parent,level) {
-		var id=++guid,t=node.getAttribute("xsi:type");
+		var id=++this.guid,t=node.getAttribute("xsi:type");
 		var n=this.archi.getNodesByXPath(node,"./archi:name[position()=1]");
 		this.nodes.add({xmlNode:node,id:id
 //			,font: {multi:'html'}

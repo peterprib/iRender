@@ -25,18 +25,6 @@ function coalesce() {
 	}
 	return null;
  }
-
- /*<input id="files" type="file" webkitdirectory>
-  *  HTMLInputElement.webkitdirectory = boolValue
-  *  
-   		document.getElementById("files").addEventListener("change", function(event) {
-   		  	event.target.webkitEntries.forEach(function(entry) {
-   		  });
-   		});
-
-  *  
-  */
-  	
 function fireEvent(node, eventName) {
     var doc;
     if(node.ownerDocument) {
@@ -97,6 +85,16 @@ function createNode (nodeDetails) {
 	if (nodeDetails.constructor === String) return document.createTextNode(nodeDetails);
 	throw Error("creadeNode unknown type, "+JSON.stringify(nodeDetails));
 };
+
+function addCloseIcon (o,n) {
+//	var t=css.setClass(document.createElement("a"),"MenuText");
+//	t.innerText="  ";
+//	n.appendChild(t);
+	o.closeIcon=css.setClass(o.base.getImage("closeIcon"),"CloseIcon");
+	n.appendChild(o.closeIcon);
+	o.closeIcon.addEventListener('click', o.onclickClose.bind(o), false);
+}
+
 function Action (b,p) {
 	Object.assign(this,p);
 	this.base=b;
@@ -250,7 +248,6 @@ Form.prototype.setTitle = function (t,v) {
 						if(e.options[i].selected) delete e.options[i].selected;
 					}
 				}
-				
 				break;
 			default: 
 				console.error("Form set title element type unknown: "+e.nodeName)
@@ -390,7 +387,7 @@ Action.prototype.exec_svg = function (e) {
 Action.prototype.exec_googleMap = function (e) {
 		try{
 		    var mapOption=coalesce(this.passing,{
-			        center: new google.maps.LatLng(51.5, -0.12),
+			        center: new (51.5, -0.12),
 			        zoom: 10,
 			        mapTypeId: google.maps.MapTypeId.HYBRID
 			    });
@@ -465,11 +462,10 @@ function HeaderRow(b,p,n,o) {
 		}
 	}
 	if(p.closable) {
-		this.closeIcon=css.setClass(this.base.getImage("closeIcon"),"CellRight");
-		this.center.appendChild(this.closeIcon);
-		this.closeIcon.addEventListener('click', this.onclickClose.bind(this), false);
+		addCloseIcon(this,this.center);
 	}
 }
+
 HeaderRow.prototype.onclickAction = function (ev) {
 		ev.stopPropagation();
 		var action=ev.currentTarget.iRenderAction
@@ -574,7 +570,7 @@ MenuOption.prototype.setExpanded = function (b) {
 			this.textCell.lastChild.style.display="TABLE";
 			return;
 		}
-		if (!("menu" in this.passing)) throw Error("menu not specified in passing");
+		if (!("menu" in this.passing)) throw Error("no menu entry specified pasy options");
 		this.menu=new Menu(this.base,Object.assign({subMenu:true},this.base.menus[this.passing.menu]),this.textCell,this.parent.target);
 	};
 MenuOption.prototype.setCollapsed = function () {
@@ -658,6 +654,7 @@ function PaneRow(b,p,n) {
 	this.element.appendChild(this.centerCell.element);
 }
 function TabPane(b,p,parent) {
+	this.base=b;
 	this.element=parent;
 	this.tabs=createTable();
 	this.tabsRow=createTableRow(this.tabs);
@@ -684,6 +681,9 @@ TabPane.prototype.onclick = function (ev) {
 	this.hideCurrent();
 	this.setCurrent(ev.currentTarget.cellIndex);
 };
+TabPane.prototype.onclickClose = function (ev) {
+	this.close(ev.currentTarget.cellIndex);
+};
 TabPane.prototype.setCurrent = function (i) {
 	this.panesRow.cells[i].style.display = 'table-cell';
 	this.tabsRow.cells[i].style.backgroundColor="LightGrey";
@@ -706,7 +706,7 @@ TabPane.prototype.setFullSize = function (n) {
 };
 TabPane.prototype.find = function (t,f) {
 		for(var i=0; i<this.tabsRow.cells.length;i++ ) {
-			if(this.tabsRow.cells[i].innerText==t) return i
+			if(this.tabsRow.cells[i].firstChild.innerText==t) return i
 		}
 		return null
 	};
@@ -725,7 +725,10 @@ TabPane.prototype.setDetail = function (t,n) {
 		var ct=css.setClass(createTableCell(this.tabsRow),"Tab")
 			,cp=css.setClass(createTableCell(this.panesRow),"TabDetail");
 		ct.addEventListener('click', this.onclick.bind(this), false);	
-		ct.innerText=t;
+		var ctt=css.setClass(document.createElement("a"),"MenuText");
+		ctt.innerText=t;
+		ct.appendChild(ctt);
+		addCloseIcon(this,ct);
 		this.setCurrent(this.tabsRow.cells.length-1);
 		n.iRender={tabPane:this,title:t};
 		cp.appendChild(n);
@@ -813,6 +816,7 @@ function IRenderClass() {
     	this.styleSheet.id = "IRenderCSS";
     	document.getElementsByTagName("head")[0].appendChild(this.styleSheet);
     	this.rule=this.styleSheet.sheet.insertRule?this.cssInsertRule:this.cssAddRule;
+    	this.add("CloseIcon","float:right;height: 12px; width: 12px;  border: 4px; margin: 0px 0px 0px 4px;");
     	this.add("CellRight","float:right;");
     	this.add("CellRight:hover","cursor: pointer; filter: invert(100%);");
     	this.add("CellRight:focus","cursor: pointer; filter: invert(100%);");
