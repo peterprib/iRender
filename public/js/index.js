@@ -7,18 +7,28 @@ requirejs.onError = function (e) {
     console.error("requirejs.onError "+ e + "\nStack: "+e.stack);
     throw e;
 };
+
 require.config({
     paths: {
-         "IRender": "IRender"
-         ,"svg": "svg"
+         "IRender": "IRender",
+        "svg": "svg"
         }
 	});
+(function (){
+	var e=document.createElement('link');
+	e.type='text/javascript';
+	e.rel='stylesheet';
+	e.href='vis.css';
+	document.getElementsByTagName('head')[0].appendChild(e);
+})();
+
 console.log("indexRequire setup processes");
 
 var rendering;
-require(["svg","IRender"], function (Svg,IRender) {
+
+require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 	console.log("IRender test");
-	var dataset = new vis.DataSet([
+	var dataseta = new vis.DataSet([
 	    {x: '2014-06-11', y: 10},
 	    {x: '2014-06-12', y: 25},
 	    {x: '2014-06-13', y: 30},
@@ -29,9 +39,28 @@ require(["svg","IRender"], function (Svg,IRender) {
 	 var options = {
 			    start: '2014-06-10',
 			    end: '2014-06-18'
-			    	,animation: false
 			  };
-	
+	 
+		var nodes = new vis.DataSet([
+		    {id: 1, label: 'Node 1'},
+		    {id: 2, label: 'Node 2'},
+		    {id: 3, label: 'Node 3'},
+		    {id: 4, label: 'Node 4'},
+		    {id: 5, label: 'Node 5'}
+		  ]);
+
+		  // create an array with edges
+		  var edges = new vis.DataSet([
+		    {from: 1, to: 3},
+		    {from: 1, to: 2},
+		    {from: 2, to: 4},
+		    {from: 2, to: 5},
+		    {from: 3, to: 3}
+		  ]);
+		  var nodedata = {
+				    nodes: nodes,
+				    edges: edges
+				  };
 	rendering=new IRender();
 	rendering.setWindow({title:"iRender",footer:"iRender by Peter Prib",pane:"main"})
 		.addPane({id:"main",title:"Sub Test",leftMenu:"mainMenu",show:"Test Pane1"})
@@ -43,12 +72,17 @@ require(["svg","IRender"], function (Svg,IRender) {
 		.addMenuOption("mainMenu",{title:"Test Pane1",action:"testAction2"})
 		.addMenuOption("mainMenu",{title:"Test Folder",action:"folder",passing:{}})
 
-		.addMenuOption("mainMenu",{title:"test vis",action:"vis",passing:{module:"Timeline",options:{},dataset:dataset}})
-		.addAction({id:"vis",title:"vis",type:"pane",pane:"vis",
-				setDetail:(element)=>{
+		.addMenuOption("mainMenu",{title:"test vis",action:"vis",passing:{module:"Network",options:{},dataset:nodedata}})
+		.addAction({id:"vis",title:"vis",type:"vis",pane:"vis"})
+		.addMenuOption("mainMenu",{title:"test vis inline",action:"visInline"})
+		.addAction({id:"visInline",title:"vis",type:"pane",pane:"vis",
+				setDetail:function (p) {
 					var div=document.createElement("DIV");
-					element.append(div);
-					new vis.Graph2d(element, dataset, options)}
+					div.style.width='100%';
+					div.style.height='100%';
+					p.setDetail(div);
+					var network = new vis.Network(div, nodedata, {});
+				}
 			})
 		.addPane({id:"vis",title:"vis"})
 
@@ -80,7 +114,6 @@ require(["svg","IRender"], function (Svg,IRender) {
 		.addPane({id:"svgEditor",title:"SVG Editor"
 			,header:{right:[{image:"edit",action:"svgOptions"}]}
 			})
-//		.addPane({id:"svgOptions",title:"SVG Options"})
 		.addAction({id:"svgOptions",title:"SVG Options",type:"floatingPane",pane:"svgOptions"})
 		.addPane({id:"svgOptions",title:"SVG Options"
 				,content:
@@ -99,21 +132,7 @@ require(["svg","IRender"], function (Svg,IRender) {
 						]}
 					]
 				})
-				/*
-				 * x="top left corner when embedded (default 0)"
-y="top left corner when embedded (default 0)"
-viewBox="the points "seen" in this SVG drawing area. 4 values separated by white space or commas. (min x, min y, width, height)"
-preserveAspectRatio="'none' or any of the 9 combinations of 'xVALYVAL' where VAL is 'min', 'mid' or 'max'. (default xMidYMid)"
-zoomAndPan="'magnify' or 'disable'. Magnify option allows users to pan and zoom your file (default magnify)"
-xml="outermost <svg> element needs to setup SVG and its namespace: xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve""
-				 * 
-				 */
-		.addImage({id:"loadingPage"	,file:"loadingpage_small.gif"})
 		.addImage({id:"logo"		,file:"frygmaLogo.jpg"})
-		.addImage({id:"cancel"		,file:"icon-cancel.gif"})
-		.addImage({id:"alert"		,file:"icon-alert.gif"})
-		.addImage({id:"error"		,file:"icon-error.gif"})
-		.addImage({id:"edit"		,file:"icon-edit.gif"})
 		.build();
 });
-console.log("indexRequire completed");
+console.log("index completed");

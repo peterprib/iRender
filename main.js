@@ -33,10 +33,11 @@ function errorHandler(err, req, res, next) {
 	}
 app.use(errorHandler);
 
-require("./lib/browserSetup")(app,[{id:'vis',offset:'dist',include:['vis.js','vis.css']}
+require("./lib/browserSetup")(app,[
 	,{id:'requirejs',include:['require.js']}
+	,{id:'vis',offset:'dist',include:['vis.js','vis.css']}
 	,{id:'font-awesome',base:'font-awesome',include:['css/font-awesome.min.css']}
-	,{id:'bootstrap',offset:'dist',include:['js/bootstrap.min.js','css/bootstrap.min.css']}
+//	,{id:'bootstrap',offset:'dist',include:['js/bootstrap.min.js','css/bootstrap.min.css']}
 	])
 
 // development only

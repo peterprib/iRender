@@ -1,4 +1,7 @@
-var svg=require("svg");
+//var svg=require("svg");
+var vis;
+require(["/vis/vis.js"], function (avis) {vis=avis;})
+
 if(String.prototype.inList)
 	console.log("String.prototype.inList already defined");
 else
@@ -87,9 +90,6 @@ function createNode (nodeDetails) {
 };
 
 function addCloseIcon (o,n) {
-//	var t=css.setClass(document.createElement("a"),"MenuText");
-//	t.innerText="  ";
-//	n.appendChild(t);
 	o.closeIcon=css.setClass(o.base.getImage("closeIcon"),"CloseIcon");
 	n.appendChild(o.closeIcon);
 	o.closeIcon.addEventListener('click', o.onclickClose.bind(o), false);
@@ -322,20 +322,20 @@ Action.prototype.exec_fileReader = function (e) {
 	};
 Action.prototype.exec_floatingPane = function (e,ev,p) {
 		if(this.passing) {
-			if(this.passing) {
-				if(this.passing.target instanceof Object) {
-					var target=this.passing.target;
-				}
+			if(this.passing.target instanceof Object) {
+				var target=this.passing.target;
 			}
 		} 
-		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing),target);
+		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing,p),target);
 	};
 Action.prototype.exec_menu = function (e) {
 		new Error("to be done");
 	};
 Action.prototype.exec_pane = function (e) {
-		var p=new Pane(this.base,this.base.getPane(this.pane));
+//		var p=new Pane(this.base,this.base.getPane(this.pane));
+		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
 		e.setDetail(this.title,p.element);
+		if(this.setDetail) this.setDetail.apply(e,[p]);
 	};
 Action.prototype.iframeLoad = function (ev) {
 		if(ev.currentTarget.childElementCount>0) return;
@@ -366,7 +366,7 @@ Action.prototype.exec_link = function (e) {
 			window.open(this.url, '_blank').focus();
 			return;
 		}
-		var iframe =  css.setClass(document.createElement("IFRAME"),"FullLeft");
+		var iframe=css.setClass(document.createElement("IFRAME"),"FullLeft");
 		iframe.addEventListener('load', this.iframeLoad.bind(this), false);	
 		iframe.addEventListener('error', this.iframeError.bind(this), false);	
 		iframe.referrerPolicy = "unsafe-url";
@@ -384,6 +384,18 @@ Action.prototype.exec_svg = function (e) {
 			this.setCatchError(e,ex);
 		}
 	};
+Action.prototype.exec_vis = function (e) {
+		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
+		e.setDetail(this.title,p.element);
+		var div=css.setClass(document.createElement("DIV"),"DetailPane");
+		p.setDetail(div);
+		try{	
+			 p.vis = new vis[(e.passing.module||"Network")](div, e.passing.dataset, e.passing.options);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+
 Action.prototype.exec_googleMap = function (e) {
 		try{
 		    var mapOption=coalesce(this.passing,{
@@ -430,7 +442,6 @@ CenterRow.prototype.content = function (c) {
 	};
 CenterRow.prototype.appendChild = function (n) {
 		this.table.rows[0].cells[1].appendChild(n);
-//	this.centerCell.appendChild(n);
 	};
 CenterRow.prototype.setDetail = function (title,n) {
 		return this.tabPane.setDetail(title,n);
@@ -525,7 +536,7 @@ Menu.prototype.find = function (t) {
 function MenuOption(b,p,parent) {
 	this.base=b;
 	Object.assign(this,p);
-	this.actionObject=this.base.actions[this.action];
+	this.actionObject=this.base.actions[this.action]||this.base.actions.actionNotDefined;
 	this.element=css.setClass(document.createElement("TR"),"MenuOption");
 	this.expandCell=document.createElement("TD");
 	this.iconCell=document.createElement("TD");
@@ -544,7 +555,7 @@ function MenuOption(b,p,parent) {
 			this.iconCell.appendChild(b.getImage(coalesce(p.image,"file")));
 	}
 	this.textA=css.setClass(document.createElement("a"),"MenuText");
-	this.textA.innerText=coalesce(this.title,this.actionObject.title,"*** no title specifed *** ");
+	this.textA.innerText=coalesce(this.title,(this.actionObject?this.actionObject.title:null),"*** no title specifed *** ");
 	this.textCell.appendChild(this.textA);
 	this.element.appendChild(this.expandCell);
 	this.element.appendChild(this.iconCell);
@@ -570,7 +581,7 @@ MenuOption.prototype.setExpanded = function (b) {
 			this.textCell.lastChild.style.display="TABLE";
 			return;
 		}
-		if (!("menu" in this.passing)) throw Error("no menu entry specified pasy options");
+		if (!("menu" in this.passing)) throw Error("no menu entry specified in passing options");
 		this.menu=new Menu(this.base,Object.assign({subMenu:true},this.base.menus[this.passing.menu]),this.textCell,this.parent.target);
 	};
 MenuOption.prototype.setCollapsed = function () {
@@ -615,6 +626,7 @@ Pane.prototype.close = function (e) {
 //	};
 Pane.prototype.appendChild = function (n) {
 		this.centerRow.appendChild(n);
+		return this;
 	};
 Pane.prototype.getDetailObject = function () {
 		return this.centerRow.getDetailObject();
@@ -623,6 +635,13 @@ Pane.prototype.getTarget = function () {
 		return this.target||this;
 	};
 Pane.prototype.setDetail = Pane.prototype.appendChild;
+
+Pane.prototype.setFullSize = function (n) {
+	n.style.width=this.element.clientWidth+"px";
+	n.style.height=this.element.clientHeight+"px";
+	return this;
+};
+
 function PaneFloat(b,p,o,t) {
 	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle,t);
 	css.setClass(this.pane.element,"PaneFloat");
@@ -682,9 +701,13 @@ TabPane.prototype.onclick = function (ev) {
 	this.setCurrent(ev.currentTarget.cellIndex);
 };
 TabPane.prototype.onclickClose = function (ev) {
-	this.close(ev.currentTarget.cellIndex);
+	this.close(ev.currentTarget.parentElement.innerText); //ev.currentTarget.cellIndex||
 };
 TabPane.prototype.setCurrent = function (i) {
+	if(i<0) {
+		this.activeTab=null;
+		return;
+	}
 	this.panesRow.cells[i].style.display = 'table-cell';
 	this.tabsRow.cells[i].style.backgroundColor="LightGrey";
 	this.activeTab=i;
@@ -720,7 +743,7 @@ TabPane.prototype.setDetail = function (t,n) {
 			}
 			this.panesRow.cells[i].appendChild(n);
 			this.setCurrent(i);
-			return;
+			return this;
 		}
 		var ct=css.setClass(createTableCell(this.tabsRow),"Tab")
 			,cp=css.setClass(createTableCell(this.panesRow),"TabDetail");
@@ -825,7 +848,7 @@ function IRenderClass() {
     	this.add("FooterMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center; display: table-row;");
     	this.add("FooterMainCell","background-color: LightSkyBlue; display: table-cell;");
     	this.add("Footer","background-color: LightGrey; width: 100%; text-align: center;");
-    	this.add("DetailPane"," width: 100%; overflow: auto;");
+    	this.add("DetailPane"," width: 100%; height: 100%; overflow: auto;");
     	this.add("MenuCell","vertical-align: top; width: 200px; height: 100%; border-right-style: solid; border-right-color: LightGrey; border-right-width: 5px;");
     	this.add("Menu","vertical-align: top;");
     	this.add("MenuText:hover","background: LightGrey;");
@@ -889,7 +912,7 @@ function IRender() {
 	this.actions={folder:{type:"folder"}};
 	this.guid=0;
 	this.metadata = {
-			action: {id:null,type:["link","pane","svg","googleMap"],url:null,title:null,target:null,pane:null,passing:null}
+			action: {id:null,type:["link","pane","svg","googleMap","vis"],url:null,title:null,target:null,pane:null,passing:null,setDetail:null}
 			,image: {id:null ,file:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,menuOption: {title:null ,action:null ,passing:null}
@@ -899,11 +922,17 @@ function IRender() {
 	this.panes={};
 	this.window={};
 	this.menus={};
-	this.images={file:"file.gif",folderOpen:"folderOpen.gif",folderClose:"folderClose.gif"}
+	this.images={
+		file:"file.gif",folderOpen:"folderOpen.gif",folderClose:"folderClose.gif",
+		loadingPageIcon:"loadingpage_small.gif",closeIcon:"close_s.gif",
+		cancel:"icon-cancel.gif",alert:"icon-alert.gif",error:"icon-error.gif",edit:"icon-edit.gif"
+		};
 	this.imageBase="images/";
 	this.addAction({id:"folder",type:"folder"});
-	this.addImage({id:"loadingPageIcon",file:"loadingpage_small.gif"});
-	this.addImage({id:"closeIcon",file:"close_s.gif"});
+	
+	this.addPane({id:"error",title:"Error"});
+	this.addAction({id:"actionNotDefined",type:"floatingPane",pane:"error"
+		,passing:{message:"Action has not been defined"}});
 }
 IRender.prototype.getImage = function(n) {
 		var i = new Image(16,16);
