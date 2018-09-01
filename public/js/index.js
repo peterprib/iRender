@@ -75,15 +75,26 @@ require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 		.addMenuOption("mainMenu",{title:"test vis",action:"vis",passing:{module:"Network",options:{},dataset:nodedata}})
 		.addAction({id:"vis",title:"vis",type:"vis",pane:"vis"})
 		.addMenuOption("mainMenu",{title:"test vis inline",action:"visInline"})
-		.addAction({id:"visInline",title:"vis",type:"pane",pane:"vis",
+		.addAction({id:"visInline",title:"vis",type:"pane",pane:"visInline",
 				setDetail:function (p) {
-					var div=document.createElement("DIV");
-					div.style.width='100%';
-					div.style.height='100%';
+					var div=createDiv();
 					p.setDetail(div);
-					var network = new vis.Network(div, nodedata, {});
+					var nc=createDiv();
+//					var nc=p.executeHeaderAction("visConfiguration").dependants.visConfiguration.centerRow.detail;
+//					var nc=document.createElement("DIV");
+//					nc.style.width='100%';
+//					nc.style.height='100%';
+					p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);
+					var network = new vis.Network(div, nodedata,{
+							configure:{enabled:true,container: nc,showButton:true}
+				});
 				}
 			})
+		.addAction({id:"visConfiguration",title:"Vis Configuration",type:"floatingPane",pane:"visConfiguration"})
+		.addPane({id:"visConfiguration",title:"vis Configuration",onCloseHide:true})
+						
+
+		.addPane({id:"visInline",title:"vis",header:{right:[{image:"edit",action:"visConfiguration"}]}})
 		.addPane({id:"vis",title:"vis"})
 
 		.addMenuOption("mainMenu",{title:"SVG",action:"svg"})

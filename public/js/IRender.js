@@ -20,6 +20,22 @@ else
 			}
 			return false;
    		};
+function dragAllowDrop(ev) {
+	ev.preventDefault();
+}
+function dragStart(ev) {
+	this.dragStartX=ev.pageX;
+	this.dragStartY=ev.pageY;
+	ev.target.style.opacity = .5;
+	document.addEventListener('dragend',dragEnd.bind(this), {once:true});
+	document.addEventListener("dragover",dragAllowDrop.bind(this), false);
+}
+function dragEnd(ev) {
+    ev.target.style.opacity = "";
+    document.removeEventListener('dragover',dragAllowDrop.bind(this), false);
+//    document.removeEventListener('dragEnd',dragEnd.bind(this), false);
+    this.movePane({x:ev.pageX-this.dragStartX,y:ev.pageY-this.dragStartY});
+}
 function coalesce() {
 	for (var a,len=arguments.length, i=0; i<len; i++) {
 		a=arguments[i];
@@ -61,8 +77,82 @@ fireEvent.prototype.getEventClass = function (e) {
 		}
 		throw Error("fireEvent: Couldn't find an event class for event '" + eventName + "'.");
 	};
-function createDiv () {
-	return css.setClass(document.createElement("DIV"),"FullLeft");
+	
+function setMoveObject (ev) {
+//	if(ev.target.nodeName=="svg") return;
+	try{
+		if(ev.target.getAttribute("draggable")==="false") return;
+	} catch(e) {}
+	ev.stopPropagation();
+	ev.preventDefault();
+	this.moveObject=this.pane.element;
+	this.moveX=ev.clientX;
+	this.moveY=ev.clientY;
+//	this.moveObject.addEventListener('mouseout', setMoveObject.prototype.reset.bind(this), false);
+//	this.moveObject.addEventListener('mouseenter', setMoveObject.prototype.reset.bind(this), false);
+	window.addEventListener('mouseup', setMoveObject.prototype.reset.bind(this), false);
+	window.addEventListener('mousemove', setMoveObject.prototype.move.bind(this), false);
+//	this.moveObject.addEventListener('click', setMoveObject.prototype.doNothing.bind(this), false);
+}
+setMoveObject.prototype.add2Attr = function (e,o) {
+	for(var p in o) {
+		if(e.hasAttribute(p))
+			e.setAttribute(p,parseInt(e.getAttribute(p))+o[p]);
+	}
+};
+setMoveObject.prototype.add2pairs = function (a,x,y) {
+	a=a.replace(/,/g," ").trim();
+	for(var r="", p=a.split(" "),i=0;i<p.length;i=i+2) {
+		r+=(parseInt(p[i])+x)+","+(parseInt(p[i+1])+y)+" ";
+	}
+	return r.trim();
+};
+
+setMoveObject.prototype.doNothing = function (ev) {
+		ev.stopPropagation();
+	};
+setMoveObject.prototype.move = function (ev) {
+//		if(!this.moveObject) return;
+		switch(this.moveObject.nodeName) {
+			case "DIV":
+			case "TABLE":
+				this.moveObject.style.left=this.moveObject.offsetLeft+ev.movementX+"px";
+				this.moveObject.style.top=this.moveObject.offsetTop+ev.movementY+"px";
+				return;
+			case "line":
+				this.add2Attr(this.moveObject,{x1:ev.movementX,x2:ev.movementX,y1:ev.movementY,y2:ev.movementY});
+				return;
+			case "rect":
+			case "use": 
+			case "pattern":
+			case "g":
+			case "text":
+				this.add2Attr(this.moveObject,{x:ev.movementX,y:ev.movementY});
+				return;
+			case "circle":  
+			case "ellipse":  
+				this.add2Attr(this.moveObject,{cx:ev.movementX,cy:ev.movementY});
+				return;
+			case "polygon":  
+			case "polyline":  
+				this.moveObject.setAttribute("points",this.add2pairs(this.moveObject.getAttribute("points"),ev.movementX,ev.movementY));
+				return;
+			default:
+				if(this.error) return;
+				console.error("setMoveObject unknown node "+this.moveObject.nodeName);
+				this.error=true;
+		}
+	};
+setMoveObject.prototype.reset = function (e) {
+		window.removeEventListener('mousemove'	,setMoveObject.prototype.move.bind(this), false);
+//		this.moveObject.removeEventListener('mouseout' 	,setMoveObject.prototype.reset.bind(this), false);
+		window.removeEventListener('mouseup'	,setMoveObject.prototype.reset.bind(this), false);
+//		this.moveObject.removeEventListener('click'		,setMoveObject.prototype.doNothing.bind(this), false);
+//		this.moveObject.removeEventListener('mouseenter' 	,setMoveObject.prototype.reset.bind(this), false);
+		delete this;
+	};
+function createDiv (f) {
+	return css.setClass(document.createElement("DIV"),f||"FullLeft");
 }
 function createTable(rows,cols) {
 	var t=document.createElement("TABLE");
@@ -105,6 +195,161 @@ function Action (b,p) {
 		throw Error(this.type+" action not valid");	
 	}
 };
+
+Action.prototype.exec_fileReader = function (e) {
+	    var thisObject=this
+	    	,request=new XMLHttpRequest();
+	    request.onreadystatechange= function() {
+	        if (request.readyState==4 && request.status==200) {
+	            var regexp = /(?<=addRow\()(.*\n?)(?=\))/gi;      // (?<=beginningstringname)(.*\n?)(?=endstringname)
+				var matches = xmlhttp.responseText.match(regexp);
+	        }
+	    }
+	    request.onerror = function(progress){
+	    	thisObject.setCatchError(e,new Error("Load failed, check log for details"));
+	    };
+	    request.open("GET", "file:"+this.passing);
+	    request.withCredentials = "true";
+    	request.send();
+	};
+Action.prototype.exec_floatingPane = function (e,ev,p) {
+		if(this.passing) {
+			if(this.passing.target instanceof Object) {
+				var target=this.passing.target;
+			}
+		}
+		if(!target) var target=e;
+		if(target.hasOwnProperty('dependants') && target.dependants.hasOwnProperty(this.id)) {
+			target.dependants[this.id].open();
+			return;
+		} 
+		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing,p),target,this);
+	};
+Action.prototype.exec_menu = function (e) {
+		new Error("to be done");
+	};
+Action.prototype.exec_pane = function (e) {
+//		var p=new Pane(this.base,this.base.getPane(this.pane));
+		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
+		e.setDetail(this.title,p.element);
+		if(this.setDetail) this.setDetail.apply(e,[p]);
+	};
+Action.prototype.iframeLoad = function (ev) {
+		if(ev.currentTarget.childElementCount>0) return;
+		this.iframeError(ev);
+	};
+Action.prototype.iframeError = function (ev) {
+		var base = ev.currentTarget.parentElement
+		base.removeChild(base.firstChild);
+		new TextArea("Load failed, check log for details",null,base); 
+	};
+Action.prototype.exec_folder = function (e) {
+		if(e.isExpanded()) {
+			e.setCollapsed();
+		} else {
+			e.setExpanded();
+		}
+	};
+Action.prototype.exec_states = function (e) {
+		e.nextState(this);
+	};
+Action.prototype.exec_link = function (e) {
+		console.log("Action exec_Link");
+		if(this.target==null) {
+			window.open(this.url);
+			return;
+		}
+		if(this.target=='_blank') {
+			window.open(this.url, '_blank').focus();
+			return;
+		}
+		var iframe=css.setClass(document.createElement("IFRAME"),"FullLeft");
+		iframe.addEventListener('load', this.iframeLoad.bind(this), false);	
+		iframe.addEventListener('error', this.iframeError.bind(this), false);	
+		iframe.referrerPolicy = "unsafe-url";
+		iframe.src=this.url;
+		iframe.style="display: inline;";
+		iframe.scrolling="auto";
+		e.setDetail(this.title,iframe);
+	};
+Action.prototype.exec_svg = function (e) {
+		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
+		e.setDetail(this.title,p.element);
+		try{
+			p.setDetail(new Svg(this.passing).element);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+Action.prototype.exec_vis = function (e) {
+		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
+		e.setDetail(this.title,p.element);
+		var div=createDiv();
+		p.setDetail(div);
+		try{	
+			 p.vis = new vis[(e.passing.module||"Network")](div, e.passing.dataset, e.passing.options);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+
+Action.prototype.exec_googleMap = function (e) {
+		try{
+		    var mapOption=coalesce(this.passing,{
+			        center: new (51.5, -0.12),
+			        zoom: 10,
+			        mapTypeId: google.maps.MapTypeId.HYBRID
+			    });
+			e.map = new google.maps.Map(e.element, mapOptions);
+		} catch(ex) {
+			this.setCatchError(e,ex);
+		}
+	};
+Action.prototype.setCatchError = function (e,ex) {
+		console.error("IRender action "+this.type+" error: "+ex+"\nStack: "+ex.stack);	
+		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack).element).setFullSize();
+	};
+function CenterRow(parent,b,p,n,o) {
+	this.parent=parent;
+	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
+	n.appendChild(this.element);
+	this.centerCell=document.createElement("TD");
+	this.element.appendChild(this.centerCell);
+	this.table=css.setClass(createTable(1,2),"Table");
+	if(coalesce(p.tab,true)) {
+			this.tabPane = new TabPane(b,p,this.table.rows[0].cells[1]);
+	}
+	if(p.hasOwnProperty("leftMenu")) {
+		this.menu=new Menu(b,b.menus[p.leftMenu],this.table.rows[0].cells[0],this.tabPane);
+	} else {
+		this.table.rows[0].cells[0].style.display = 'none';
+	}
+	this.centerCell.appendChild(this.table);
+	this.detail=this.table.rows[0].cells[1]
+}
+CenterRow.prototype.getTargetObject = function () {
+	return this.parent.getTargetObject();
+};
+CenterRow.prototype.getDetailObject = function () {
+		return this.detail.firstChild.iRender;
+	};
+CenterRow.prototype.content = function (c) {
+		this.content=new Form(this).addItem(c);
+		this.detail.appendChild(this.content.element);
+	};
+CenterRow.prototype.appendChild = function (n) {
+		this.detail.appendChild(n);
+	};
+CenterRow.prototype.setDetail = function (title,n) {
+		return this.tabPane.setDetail(title,n);
+	};
+function FooterRow(b,p,n,o) {
+	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"Footer"));
+	n.appendChild(this.element);
+	this.center=css.setClass(document.createElement("TD"),(o&&o.style?o.style:"Footer")+"Cell");
+	this.center.appendChild(createNode(p.footer||"No Title Set"));
+	this.element.appendChild(this.center);
+}
 
 function Form(parent) {
 	this.element=createTable();
@@ -304,155 +549,6 @@ Form.prototype.set = function (e,o,r) {
 		return e;
 	};
 
-Action.prototype.exec_fileReader = function (e) {
-	    var thisObject=this
-	    	,request=new XMLHttpRequest();
-	    request.onreadystatechange= function() {
-	        if (request.readyState==4 && request.status==200) {
-	            var regexp = /(?<=addRow\()(.*\n?)(?=\))/gi;      // (?<=beginningstringname)(.*\n?)(?=endstringname)
-				var matches = xmlhttp.responseText.match(regexp);
-	        }
-	    }
-	    request.onerror = function(progress){
-	    	thisObject.setCatchError(e,new Error("Load failed, check log for details"));
-	    };
-	    request.open("GET", "file:"+this.passing);
-	    request.withCredentials = "true";
-    	request.send();
-	};
-Action.prototype.exec_floatingPane = function (e,ev,p) {
-		if(this.passing) {
-			if(this.passing.target instanceof Object) {
-				var target=this.passing.target;
-			}
-		} 
-		new PaneFloat(this.base,this.base.getPane(this.pane),Object.assign({y:ev.pageY,x:ev.pageX},this.passing,p),target);
-	};
-Action.prototype.exec_menu = function (e) {
-		new Error("to be done");
-	};
-Action.prototype.exec_pane = function (e) {
-//		var p=new Pane(this.base,this.base.getPane(this.pane));
-		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
-		e.setDetail(this.title,p.element);
-		if(this.setDetail) this.setDetail.apply(e,[p]);
-	};
-Action.prototype.iframeLoad = function (ev) {
-		if(ev.currentTarget.childElementCount>0) return;
-		this.iframeError(ev);
-	};
-Action.prototype.iframeError = function (ev) {
-		var base = ev.currentTarget.parentElement
-		base.removeChild(base.firstChild);
-		new TextArea("Load failed, check log for details",null,base); 
-	};
-Action.prototype.exec_folder = function (e) {
-		if(e.isExpanded()) {
-			e.setCollapsed();
-		} else {
-			e.setExpanded();
-		}
-	};
-Action.prototype.exec_states = function (e) {
-		e.nextState(this);
-	};
-Action.prototype.exec_link = function (e) {
-		console.log("Action exec_Link");
-		if(this.target==null) {
-			window.open(this.url);
-			return;
-		}
-		if(this.target=='_blank') {
-			window.open(this.url, '_blank').focus();
-			return;
-		}
-		var iframe=css.setClass(document.createElement("IFRAME"),"FullLeft");
-		iframe.addEventListener('load', this.iframeLoad.bind(this), false);	
-		iframe.addEventListener('error', this.iframeError.bind(this), false);	
-		iframe.referrerPolicy = "unsafe-url";
-		iframe.src=this.url;
-		iframe.style="display: inline;";
-		iframe.scrolling="auto";
-		e.setDetail(this.title,iframe);
-	};
-Action.prototype.exec_svg = function (e) {
-		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
-		e.setDetail(this.title,p.element);
-		try{
-			p.setDetail(new Svg(this.passing).element);
-		} catch(ex) {
-			this.setCatchError(e,ex);
-		}
-	};
-Action.prototype.exec_vis = function (e) {
-		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
-		e.setDetail(this.title,p.element);
-		var div=css.setClass(document.createElement("DIV"),"DetailPane");
-		p.setDetail(div);
-		try{	
-			 p.vis = new vis[(e.passing.module||"Network")](div, e.passing.dataset, e.passing.options);
-		} catch(ex) {
-			this.setCatchError(e,ex);
-		}
-	};
-
-Action.prototype.exec_googleMap = function (e) {
-		try{
-		    var mapOption=coalesce(this.passing,{
-			        center: new (51.5, -0.12),
-			        zoom: 10,
-			        mapTypeId: google.maps.MapTypeId.HYBRID
-			    });
-			e.map = new google.maps.Map(e.element, mapOptions);
-		} catch(ex) {
-			this.setCatchError(e,ex);
-		}
-	};
-Action.prototype.setCatchError = function (e,ex) {
-		console.error("IRender action "+this.type+" error: "+ex+"\nStack: "+ex.stack);	
-		e.setDetail(this.title,new TextArea(ex.toString()+"\nStack: "+ex.stack).element).setFullSize();
-	};
-function CenterRow(parent,b,p,n,o) {
-	this.parent=parent;
-	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
-	n.appendChild(this.element);
-	this.centerCell=document.createElement("TD");
-	this.element.appendChild(this.centerCell);
-	this.table=css.setClass(createTable(1,2),"Table");
-	if(coalesce(p.tab,true)) {
-			this.tabPane = new TabPane(b,p,this.table.rows[0].cells[1]);
-	}
-	if(p.hasOwnProperty("leftMenu")) {
-		this.menu=new Menu(b,b.menus[p.leftMenu],this.table.rows[0].cells[0],this.tabPane);
-	} else {
-		this.table.rows[0].cells[0].style.display = 'none';
-	}
-	this.centerCell.appendChild(this.table);
-	this.detail=this.table.rows[0].cells[1]
-}
-CenterRow.prototype.getTargetObject = function () {
-	return this.parent.getTargetObject();
-};
-CenterRow.prototype.getDetailObject = function () {
-		return this.detail.firstChild.iRender;
-	};
-CenterRow.prototype.content = function (c) {
-		this.content=new Form(this).addItem(c);
-		this.detail.appendChild(this.content.element);
-	};
-CenterRow.prototype.appendChild = function (n) {
-		this.table.rows[0].cells[1].appendChild(n);
-	};
-CenterRow.prototype.setDetail = function (title,n) {
-		return this.tabPane.setDetail(title,n);
-	};
-function FooterRow(b,p,n,o) {
-	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"Footer"));
-	n.appendChild(this.element);
-	this.center=css.setClass(document.createElement("TD"),(o&&o.style?o.style:"Footer")+"Cell");
-	this.center.appendChild(createNode(p.footer||"No Title Set"));
-	this.element.appendChild(this.center);
-}
 function HeaderRow(b,p,n,o) {
 	this.base=b;
 	Object.assign(this,o,p);
@@ -476,6 +572,17 @@ function HeaderRow(b,p,n,o) {
 		addCloseIcon(this,this.center);
 	}
 }
+HeaderRow.prototype.executeAction = function (id,panel) {
+		for(var n,i=0;i<=this.center.childNodes.length;i++) {
+			n=this.center.childNodes[i];
+			if(!n.hasOwnProperty('iRenderAction')) continue;
+			if(n.iRenderAction.id!=id) continue;
+			return n.iRenderAction.exec(panel,
+				{	pageY:window.pageYOffset + n.getBoundingClientRect().top,
+					pageX:window.pageXOffset + n.getBoundingClientRect().left
+				});
+		}
+	};
 
 HeaderRow.prototype.onclickAction = function (ev) {
 		ev.stopPropagation();
@@ -486,6 +593,7 @@ HeaderRow.prototype.onclickClose = function (e) {
 		e.stopPropagation();
 		this.pane.close(e);
 	};
+
 function Menu(b,p,n,t) {
 	this.base=b;
 	this.parent=n;
@@ -599,7 +707,7 @@ MenuOption.prototype.onclick = function (ev) {
 		ev.stopPropagation();
 		this.actionObject.exec(this,ev,this.passing);
 	};
-function Pane(b,p,n,t) {
+function Pane(b,p,n,t,action) {
 	this.base=b;
 	this.target=t;
 	Object.assign(this,p);
@@ -611,21 +719,35 @@ function Pane(b,p,n,t) {
 	if(p.hasOwnProperty("footer")) this.footerRow=new FooterRow(b,p,this.element,{style:"Footer"});
 	if(n) n.appendChild(this.element);
 	if(p.hasOwnProperty("content")) this.centerRow.content(p.content);
+//	this.onCloseHide=p.onCloseHide||false;
+	if(this.onCloseHide) {
+		if(action) {
+			if(!t.hasOwnProperty('dependants')) t.dependants=[];
+			t.dependants[action.id]=this;
+		} else
+			this.onCloseHide=false;
+	}
 }
+Pane.prototype.appendChild = function (n) {
+	this.centerRow.appendChild(n);
+	return this;
+};
 Pane.prototype.close = function (e) {
+		if(this.onCloseHide) {
+			this.styleDisplay=this.element.style.display;
+			this.element.style.display = 'none';
+			return this;
+		}
 		if(this.element.iRender) {
 			this.element.iRender.tabPane.close(this.element.iRender.title);
 		}
 		this.element.parentElement.removeChild(this.element);
 		delete this;
 	};
-//Pane.prototype.sizeCenter = function () {
-//		this.centerNode.style.height= this.element.clientHeight
-//				-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
-//				-(this.footerNode?this.footerNode.element.getBoundingClientRect().Height:0);
-//	};
-Pane.prototype.appendChild = function (n) {
-		this.centerRow.appendChild(n);
+Pane.prototype.executeHeaderAction = function (id) {
+		if(this.headerRow) {
+			this.headerRow.executeAction(id,this);
+		}
 		return this;
 	};
 Pane.prototype.getDetailObject = function () {
@@ -634,6 +756,15 @@ Pane.prototype.getDetailObject = function () {
 Pane.prototype.getTarget = function () {
 		return this.target||this;
 	};
+Pane.prototype.open = function () {
+		this.element.style.display = this.styleDisplay;
+		return this;
+	};
+//Pane.prototype.sizeCenter = function () {
+//	this.centerNode.style.height= this.element.clientHeight
+//			-(this.headerNode?this.headerNode.element.getBoundingClientRect().Height:0)
+//			-(this.footerNode?this.footerNode.element.getBoundingClientRect().Height:0);
+//};
 Pane.prototype.setDetail = Pane.prototype.appendChild;
 
 Pane.prototype.setFullSize = function (n) {
@@ -642,8 +773,8 @@ Pane.prototype.setFullSize = function (n) {
 	return this;
 };
 
-function PaneFloat(b,p,o,t) {
-	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle,t);
+function PaneFloat(b,p,o,t,a) {
+	this.pane=new Pane(b,Object.assign({},p,{closable:true,tab:false}),b.floatHandle,t,a);
 	css.setClass(this.pane.element,"PaneFloat");
 	this.position(o.x,o.y);
 	if(o) {
@@ -651,20 +782,29 @@ function PaneFloat(b,p,o,t) {
 			this.pane.appendChild(Text(o.message));
 		}
 	}
+	this.pane.headerRow.element.draggable=true;//dragStart
+	this.pane.headerRow.element.addEventListener('dragstart', dragStart.bind(this), false);
+//	this.moveBase=this.pane.headerRow?this.pane.headerRow.element:this.pane.element;
+//	this.moveBase.style.cursor="move";
+//	this.moveBase.moveObject=this.pane.element;
+//	this.moveBase.addEventListener('mousedown', setMoveObject.bind(this), false);
 }
 //PaneFloat.prototype.size = function () {
 		//
 //	};
 PaneFloat.prototype.position = function (x,y) {
-		var e=this.pane.element
-			,a=this.pane.base.getAdjustedPosition(x,y,e);
-		e.style.left=a.x+"px";
-		e.style.top=a.y+"px";
+		this.positionAbsolute(this.pane.base.getAdjustedPosition(x,y,this.pane.element))
 	};
-PaneFloat.prototype.close = function () {
-		this.pane.element.parentElement.removeChild(this.pane.element);
-		delete this;
+	
+PaneFloat.prototype.positionAbsolute = function (p) {
+		this.pane.element.style.left=p.x+"px";
+		this.pane.element.style.top=p.y+"px";
 	};
+PaneFloat.prototype.movePane = function (p) {
+		const rect = this.pane.element.getBoundingClientRect();
+		this.positionAbsolute({x:rect.left+p.x,y:rect.top+p.y});
+	};
+
 function PaneRow(b,p,n) {
 	this.element=css.setClass(document.createElement("TR"),"TableRow");
 	n.appendChild(this.element);
@@ -916,7 +1056,7 @@ function IRender() {
 			,image: {id:null ,file:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,menuOption: {title:null ,action:null ,passing:null}
-			,pane: {id:null ,title:null, leftMenu:null,show:null ,closable:null ,header:null ,footer:null, content:null}
+			,pane: {id:null ,title:null, leftMenu:null,show:null ,closable:null, onCloseHide:null ,header:null ,footer:null, content:null}
 			,window: {title:{"default":"No Title Specified"},footer:{"default":"No Footer Specified"},pane:null}
 		};
 	this.panes={};
@@ -924,7 +1064,7 @@ function IRender() {
 	this.menus={};
 	this.images={
 		file:"file.gif",folderOpen:"folderOpen.gif",folderClose:"folderClose.gif",
-		loadingPageIcon:"loadingpage_small.gif",closeIcon:"close_s.gif",
+		loadingPage:"loadingpage_small.gif",closeIcon:"close_s.gif",
 		cancel:"icon-cancel.gif",alert:"icon-alert.gif",error:"icon-error.gif",edit:"icon-edit.gif"
 		};
 	this.imageBase="images/";
