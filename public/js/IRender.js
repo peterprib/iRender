@@ -218,7 +218,7 @@ Action.prototype.exec_floatingPane = function (e,ev,p) {
 				var target=this.passing.target;
 			}
 		}
-		if(!target) var target=e;
+		if(!target) var target=e.pane;
 		if(target.hasOwnProperty('dependants') && target.dependants.hasOwnProperty(this.id)) {
 			target.dependants[this.id].open();
 			return;
@@ -572,12 +572,12 @@ function HeaderRow(b,p,n,o) {
 		addCloseIcon(this,this.center);
 	}
 }
-HeaderRow.prototype.executeAction = function (id,panel) {
+HeaderRow.prototype.executeAction = function (id) {
 		for(var n,i=0;i<=this.center.childNodes.length;i++) {
 			n=this.center.childNodes[i];
 			if(!n.hasOwnProperty('iRenderAction')) continue;
 			if(n.iRenderAction.id!=id) continue;
-			return n.iRenderAction.exec(panel,
+			return n.iRenderAction.exec(this,
 				{	pageY:window.pageYOffset + n.getBoundingClientRect().top,
 					pageX:window.pageXOffset + n.getBoundingClientRect().left
 				});
@@ -733,10 +733,13 @@ Pane.prototype.appendChild = function (n) {
 	return this;
 };
 Pane.prototype.close = function (e) {
-		if(this.onCloseHide) {
-			this.styleDisplay=this.element.style.display;
-			this.element.style.display = 'none';
-			return this;
+		if(this.element.style.display == 'none') return;
+		this.styleDisplay=this.element.style.display;
+		this.element.style.display = 'none';
+		if(this.onCloseHide) return this;
+		if(this.hasOwnProperty('dependants')) {
+			for(var n in this.dependants)
+				this.dependants[n].close();
 		}
 		if(this.element.iRender) {
 			this.element.iRender.tabPane.close(this.element.iRender.title);
@@ -746,7 +749,7 @@ Pane.prototype.close = function (e) {
 	};
 Pane.prototype.executeHeaderAction = function (id) {
 		if(this.headerRow) {
-			this.headerRow.executeAction(id,this);
+			this.headerRow.executeAction(id);
 		}
 		return this;
 	};
@@ -795,7 +798,6 @@ function PaneFloat(b,p,o,t,a) {
 PaneFloat.prototype.position = function (x,y) {
 		this.positionAbsolute(this.pane.base.getAdjustedPosition(x,y,this.pane.element))
 	};
-	
 PaneFloat.prototype.positionAbsolute = function (p) {
 		this.pane.element.style.left=p.x+"px";
 		this.pane.element.style.top=p.y+"px";
@@ -803,6 +805,13 @@ PaneFloat.prototype.positionAbsolute = function (p) {
 PaneFloat.prototype.movePane = function (p) {
 		const rect = this.pane.element.getBoundingClientRect();
 		this.positionAbsolute({x:rect.left+p.x,y:rect.top+p.y});
+		this.setMaxPaneSize();
+	};
+PaneFloat.prototype.setMaxPaneSize = function () {
+		const p = this.pane.element.getBoundingClientRect()
+			,w=this.pane.base.getBoundingClientRect()
+		if(w.width<p.right) this.pane.element.style.width=(w.width-p.left)+"px";
+ 		if(w.height<p.bottom) this.pane.element.style.height=(w.height-p.top)+"px";
 	};
 
 function PaneRow(b,p,n) {
@@ -830,6 +839,9 @@ function TabPane(b,p,parent) {
 TabPane.prototype.close = function (t) {
 		var i=this.find(t);
 		this.activeTab=null;
+		try{
+			this.panesRow.cells[i].firstChild.IRender.close();
+		} catch(e) {}
 		this.panesRow.deleteCell(i);
 		this.tabsRow.deleteCell(i);
 		if(this.tabsRow.cells.length<1) return;
@@ -853,9 +865,10 @@ TabPane.prototype.setCurrent = function (i) {
 	this.activeTab=i;
 };
 TabPane.prototype.hideCurrent = function (e) {
-		if(this.activeTab==null) return;
-		this.panesRow.cells[this.activeTab].style.display = 'none';
-		this.tabsRow.cells[this.activeTab].style.backgroundColor="";
+		try{
+			this.panesRow.cells[this.activeTab].style.display = 'none';
+			this.tabsRow.cells[this.activeTab].style.backgroundColor="";
+		} catch(e) {}
 		this.activeTab=null;
 	};
 TabPane.prototype.setFullSize = function (n) {
@@ -993,9 +1006,9 @@ function IRenderClass() {
     	this.add("Menu","vertical-align: top;");
     	this.add("MenuText:hover","background: LightGrey;");
     	this.add("MenuOption","height: 20px; vertical-align: top;");
-    	this.add("PaneFloat","min-width: 100px; min-height: 100px;"
+    	this.add("PaneFloat","min-width: 100px; min-height: 100px; "
     			+"position:absolute; filter: alpha(opacity=100); -moz-opacity: 1; background-color:white; opacity: 1; padding:0px;"
-    			+"overflow:auto; z-index:99999; background-color:#FFFFFF; border: 1px solid #a4a4a4;")
+    			+"overflow: auto; z-index:99999; background-color:#FFFFFF; border: 1px solid #a4a4a4;")
     	this.add("resizeVertical:hover","cursor: ew-resize;");
        	this.add("Tab","height: 20px; float: left; border: medium solid LightGrey; border-top-left-radius: 5px; border-top-right-radius: 10px;");
        	this.add("TabDetail","");
@@ -1137,7 +1150,7 @@ IRender.prototype.BODY = function(n) {
 	};
 IRender.prototype.getAdjustedPosition = function(x,y,n) {
 		// rect is a DOMRect object with eight properties: left, top, right, bottom, x, y, width, height
-		var window=this.windowObject.element.getBoundingClientRect()
+		var window=this.getBoundingClientRect()
 			,pane=n.getBoundingClientRect()
 			,paneEndx=x+pane.width
 			,paneEndy=y+pane.height
@@ -1145,7 +1158,9 @@ IRender.prototype.getAdjustedPosition = function(x,y,n) {
 			,ay=(paneEndy<window.height?y:y-paneEndy+window.height);
 		return {x:ax,y:ay};
 	};
-
+IRender.prototype.getBoundingClientRect = function() {
+		return this.windowObject.element.getBoundingClientRect();
+	};
 IRender.prototype.checkProperties = function(o,e) {
 		var ps=this.metadata[e];
 		for(var p in o)
