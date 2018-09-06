@@ -81,10 +81,6 @@ require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 					var div=createDiv();
 					p.setDetail(div);
 					var nc=createDiv();
-//					var nc=css.setClass(createDiv(),"DetailPane");
-//					var nc=p.executeHeaderAction("visConfiguration").dependants.visConfiguration.centerRow.detail;
-//					var nc=document.createElement("DIV");
-//					nc.style.width='200px';
 					nc.style.height=Math.round(window.innerHeight * 0.80) + 'px'; 
 					nc.style.overflow='auto';
 					p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);

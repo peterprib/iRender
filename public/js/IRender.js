@@ -229,7 +229,6 @@ Action.prototype.exec_menu = function (e) {
 		new Error("to be done");
 	};
 Action.prototype.exec_pane = function (e) {
-//		var p=new Pane(this.base,this.base.getPane(this.pane));
 		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
 		e.setDetail(this.title,p.element);
 		if(this.setDetail) this.setDetail.apply(e,[p]);
@@ -282,12 +281,24 @@ Action.prototype.exec_svg = function (e) {
 		}
 	};
 Action.prototype.exec_vis = function (e) {
-		var p=new Pane(this.base,Object.assign({tab:false},this.base.getPane(this.pane)));
+		var p=new Pane(this.base,Object.assign({tab:false,header:{right:[{image:"edit",action:"visConfiguration"}]}},this.base.getPane(this.pane)));
 		e.setDetail(this.title,p.element);
 		var div=createDiv();
 		p.setDetail(div);
+		e.passing.module=e.passing.module||"Network";
+		if(!e.passing.options.configure) {
+			if (e.passing.module=="Network") {
+				var nc=createDiv();
+				nc.style.height=Math.round(window.innerHeight * 0.80) + 'px'; 
+				nc.style.overflow='auto';
+				p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);
+
+			}
+			e.passing.options.configure={enabled:true,container: nc,showButton:true}
+		}
+		
 		try{	
-			 p.vis = new vis[(e.passing.module||"Network")](div, e.passing.dataset, e.passing.options);
+			 p.vis = new vis[e.passing.module](div, e.passing.dataset, e.passing.options);
 		} catch(ex) {
 			this.setCatchError(e,ex);
 		}
@@ -573,7 +584,7 @@ function HeaderRow(b,p,n,o) {
 	}
 }
 HeaderRow.prototype.executeAction = function (id) {
-		for(var n,i=0;i<=this.center.childNodes.length;i++) {
+		for(var n,i=0;i<this.center.childNodes.length;i++) {
 			n=this.center.childNodes[i];
 			if(!n.hasOwnProperty('iRenderAction')) continue;
 			if(n.iRenderAction.id!=id) continue;
@@ -700,6 +711,9 @@ MenuOption.prototype.setCollapsed = function () {
 		this.iconCell.appendChild(this.base.getImage("folderClose"));
 		if(this.textCell.childElementCount>1) this.textCell.lastChild.style.display="none";
 	};
+MenuOption.prototype.setFocus = function (t,n) {
+		return this.parent.setFocus(coalesce(this.title,t),n);
+	};
 MenuOption.prototype.setDetail = function (t,n) {
 		return this.parent.setDetail(coalesce(this.title,t),n);
 	};
@@ -741,10 +755,6 @@ Pane.prototype.close = function (e) {
 			for(var n in this.dependants)
 				this.dependants[n].close();
 		}
-		if(this.element.iRender) {
-			this.element.iRender.tabPane.close(this.element.iRender.title);
-		}
-		this.element.parentElement.removeChild(this.element);
 		delete this;
 	};
 Pane.prototype.executeHeaderAction = function (id) {
@@ -836,8 +846,15 @@ function TabPane(b,p,parent) {
 	css.setClass(this.table.rows[1].cells[0],"TabPaneCell");
 	this.element.appendChild(this.table);
 }
-TabPane.prototype.close = function (t) {
-		var i=this.find(t);
+TabPane.prototype.close = function () {
+	while(this.tabsRow.cells.length>0) {
+		this.closeTab(0);
+	}
+}
+TabPane.prototype.closeTabTitle = function (t) {
+		this.closeTab(this.find(t));
+}
+TabPane.prototype.closeTab = function (i) {
 		this.activeTab=null;
 		try{
 			this.panesRow.cells[i].firstChild.IRender.close();
@@ -853,7 +870,8 @@ TabPane.prototype.onclick = function (ev) {
 	this.setCurrent(ev.currentTarget.cellIndex);
 };
 TabPane.prototype.onclickClose = function (ev) {
-	this.close(ev.currentTarget.parentElement.innerText); //ev.currentTarget.cellIndex||
+	ev.stopPropagation();
+	this.closeTabTitle(ev.currentTarget.parentElement.innerText); //ev.currentTarget.cellIndex||
 };
 TabPane.prototype.setCurrent = function (i) {
 	if(i<0) {
@@ -879,7 +897,7 @@ TabPane.prototype.setFullSize = function (n) {
 		n.style.width=c.clientWidth+"px";
 		n.style.height=c.clientHeight+"px";
 		return this;
-};
+	};
 TabPane.prototype.find = function (t,f) {
 		for(var i=0; i<this.tabsRow.cells.length;i++ ) {
 			if(this.tabsRow.cells[i].firstChild.innerText==t) return i
@@ -1086,6 +1104,8 @@ function IRender() {
 	this.addPane({id:"error",title:"Error"});
 	this.addAction({id:"actionNotDefined",type:"floatingPane",pane:"error"
 		,passing:{message:"Action has not been defined"}});
+	this.addAction({id:"visConfiguration",title:"Vis Configuration",type:"floatingPane",pane:"visConfiguration"})
+	this.addPane({id:"visConfiguration",title:"vis Configuration",onCloseHide:true})
 }
 IRender.prototype.getImage = function(n) {
 		var i = new Image(16,16);
