@@ -20,6 +20,11 @@ else
 			}
 			return false;
    		};
+function createElement(e,c,n){
+	var en=c?css.setClass(document.createElement(e),c):document.createElement(e);
+	n.appendChild(en);
+	return en;
+}
 function dragAllowDrop(ev) {
 	ev.preventDefault();
 }
@@ -145,10 +150,7 @@ setMoveObject.prototype.move = function (ev) {
 	};
 setMoveObject.prototype.reset = function (e) {
 		window.removeEventListener('mousemove'	,setMoveObject.prototype.move.bind(this), false);
-//		this.moveObject.removeEventListener('mouseout' 	,setMoveObject.prototype.reset.bind(this), false);
 		window.removeEventListener('mouseup'	,setMoveObject.prototype.reset.bind(this), false);
-//		this.moveObject.removeEventListener('click'		,setMoveObject.prototype.doNothing.bind(this), false);
-//		this.moveObject.removeEventListener('mouseenter' 	,setMoveObject.prototype.reset.bind(this), false);
 		delete this;
 	};
 function createDiv (f) {
@@ -219,7 +221,7 @@ Action.prototype.exec_floatingPane = function (e,ev,p) {
 			}
 		}
 		if(!target) var target=e.pane;
-		if(target.hasOwnProperty('dependants') && target.dependants.hasOwnProperty(this.id)) {
+		if(target && target.hasOwnProperty('dependants') && target.dependants.hasOwnProperty(this.id)) {
 			target.dependants[this.id].open();
 			return;
 		} 
@@ -280,30 +282,6 @@ Action.prototype.exec_svg = function (e) {
 			this.setCatchError(e,ex);
 		}
 	};
-Action.prototype.exec_vis = function (e) {
-		var p=new Pane(this.base,Object.assign({tab:false,header:{right:[{image:"edit",action:"visConfiguration"}]}},this.base.getPane(this.pane)));
-		e.setDetail(this.title,p.element);
-		var div=createDiv();
-		p.setDetail(div);
-		e.passing.module=e.passing.module||"Network";
-		if(!e.passing.options.configure) {
-			if (e.passing.module=="Network") {
-				var nc=createDiv();
-				nc.style.height=Math.round(window.innerHeight * 0.80) + 'px'; 
-				nc.style.overflow='auto';
-				p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);
-
-			}
-			e.passing.options.configure={enabled:true,container: nc,showButton:true}
-		}
-		
-		try{	
-			 p.vis = new vis[e.passing.module](div, e.passing.dataset, e.passing.options);
-		} catch(ex) {
-			this.setCatchError(e,ex);
-		}
-	};
-
 Action.prototype.exec_googleMap = function (e) {
 		try{
 		    var mapOption=coalesce(this.passing,{
@@ -322,10 +300,8 @@ Action.prototype.setCatchError = function (e,ex) {
 	};
 function CenterRow(parent,b,p,n,o) {
 	this.parent=parent;
-	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"CenterRow"));
-	n.appendChild(this.element);
-	this.centerCell=document.createElement("TD");
-	this.element.appendChild(this.centerCell);
+	this.element=createElement("TR",(o&&o.style?o.style:"CenterRow"),n);
+	this.centerCell=createElement("TD",null,this.element);
 	this.table=css.setClass(createTable(1,2),"Table");
 	if(coalesce(p.tab,true)) {
 			this.tabPane = new TabPane(b,p,this.table.rows[0].cells[1]);
@@ -355,11 +331,9 @@ CenterRow.prototype.setDetail = function (title,n) {
 		return this.tabPane.setDetail(title,n);
 	};
 function FooterRow(b,p,n,o) {
-	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"Footer"));
-	n.appendChild(this.element);
-	this.center=css.setClass(document.createElement("TD"),(o&&o.style?o.style:"Footer")+"Cell");
+	this.element=createElement("TR",(o&&o.style?o.style:"Footer"),n);
+	this.center=createElement("TD",(o&&o.style?o.style:"Footer")+"Cell",this.element);
 	this.center.appendChild(createNode(p.footer||"No Title Set"));
-	this.element.appendChild(this.center);
 }
 
 function Form(parent) {
@@ -563,29 +537,36 @@ Form.prototype.set = function (e,o,r) {
 function HeaderRow(b,p,n,o) {
 	this.base=b;
 	Object.assign(this,o,p);
-	this.element=css.setClass(document.createElement("TR"),(o&&o.style?o.style:"HeaderRow"));
-	n.appendChild(this.element);
-	this.center=document.createElement("TD");
+	this.element=createElement("TR",(o&&o.style?o.style:"HeaderRow"),n);
+	this.main=css.setClass(document.createElement("TABLE"),"FullSize");
+	this.element.appendChild(this.main);
+	this.mainRow=document.createElement("TR");
+	this.main.appendChild(this.mainRow);
+	this.left=createElement("TD","HeaderLeft",this.main);
+	this.center=createElement("TD","HeaderCenter",this.main);
 	this.center.appendChild(createNode("\u00a0"+(p.title||"No Title Set")+"\u00a0"));
-	this.element.appendChild(this.center);
-	if(p.right) {
-		for(var i in p.right) {
-			var icon=p.right[i];
-			if("image"in icon) {
+	this.right=createElement("TD","HeaderRight",this.main);
+	if(p.closable) addCloseIcon(this,this.right);
+	if(p.right) this.addRight(p.right);
+}
+HeaderRow.prototype.addRight = function (right) {
+		for(var i in right) {
+			var icon=right[i];
+			if("image" in icon) {
 				var iconNode=css.setClass(this.base.getImage(icon.image),"CellRight");
 				iconNode.addEventListener('click', this.onclickAction.bind(this), false);
 				iconNode.iRenderAction=this.base.actions[icon.action];
-				this.center.appendChild(iconNode);
+				this.right.insertBefore(iconNode, this.right.firstchild);
 			}
 		}
-	}
-	if(p.closable) {
-		addCloseIcon(this,this.center);
-	}
-}
-HeaderRow.prototype.executeAction = function (id) {
-		for(var n,i=0;i<this.center.childNodes.length;i++) {
-			n=this.center.childNodes[i];
+};
+HeaderRow.prototype.executeAction = function (id) {	
+		this.executeActionCell(id,this.left);
+		this.executeActionCell(id,this.right);
+	};
+HeaderRow.prototype.executeActionCell = function (id,c) {
+		for(var n,i=0;i<c.childNodes.length;i++) {
+			n=c.childNodes[i];
 			if(!n.hasOwnProperty('iRenderAction')) continue;
 			if(n.iRenderAction.id!=id) continue;
 			return n.iRenderAction.exec(this,
@@ -602,7 +583,7 @@ HeaderRow.prototype.onclickAction = function (ev) {
 	};
 HeaderRow.prototype.onclickClose = function (e) {
 		e.stopPropagation();
-		this.pane.close(e);
+		this.pane.onclickClose(e);
 	};
 
 function Menu(b,p,n,t) {
@@ -612,12 +593,11 @@ function Menu(b,p,n,t) {
 	this.resizeHover=false;
 	if(!p.subMenu)
 		css.setClass(n,"MenuCell");
-	this.element=css.setClass(document.createElement("TABLE"),"Menu")
+	this.element=createElement("TABLE","Menu",n);
 	this.options={};
 	for(var option in p.options){
 		this.addOption(option,p.options[option]);
 	}
-	n.appendChild(this.element);
 	if(!p.subMenu)
 		n.addEventListener('mousemove', this.mousemove.bind(this), false);	
 }
@@ -656,10 +636,11 @@ function MenuOption(b,p,parent) {
 	this.base=b;
 	Object.assign(this,p);
 	this.actionObject=this.base.actions[this.action]||this.base.actions.actionNotDefined;
-	this.element=css.setClass(document.createElement("TR"),"MenuOption");
-	this.expandCell=document.createElement("TD");
-	this.iconCell=document.createElement("TD");
-	this.textCell=document.createElement("TD");
+	this.element=createElement("TR","MenuOption",parent);
+	this.parent=parent;
+	this.expandCell=createElement("TD",null,this.element);
+	this.iconCell=createElement("TD",null,this.element);
+	this.textCell=createElement("TD",null,this.element);
 	this.element.iRender= p;
 	this.element.addEventListener('click', this.onclick.bind(this), false);
 	switch(p.action) {
@@ -673,15 +654,9 @@ function MenuOption(b,p,parent) {
 		default:
 			this.iconCell.appendChild(b.getImage(coalesce(p.image,"file")));
 	}
-	this.textA=css.setClass(document.createElement("a"),"MenuText");
+	this.textA=createElement("a","MenuText",this.textCell);
 	this.textA.innerText=coalesce(this.title,(this.actionObject?this.actionObject.title:null),"*** no title specifed *** ");
-	this.textCell.appendChild(this.textA);
-	this.element.appendChild(this.expandCell);
-	this.element.appendChild(this.iconCell);
-	this.element.appendChild(this.textCell);
 	this.properties=p;
-	this.parent=parent;
-	parent.appendChild(this.element);
 }
 MenuOption.prototype.nextState = function (a) {
 		this.iconCell.removeChild(this.iconCell.firstChild);
@@ -743,20 +718,30 @@ function Pane(b,p,n,t,action) {
 	}
 }
 Pane.prototype.appendChild = function (n) {
-	this.centerRow.appendChild(n);
-	return this;
-};
+		this.centerRow.appendChild(n);
+		return this;
+	};
+Pane.prototype.onclickClose = function (e) {
+		if(this.element && this.element.iRender && this.element.iRender.tabPane ) {
+			this.element.iRender.tabPane.closeTabTitle(this.element.iRender.title);
+			return;
+		}
+		this.close(e);
+	};
 Pane.prototype.close = function (e) {
 		if(this.element.style.display == 'none') return;
 		this.styleDisplay=this.element.style.display;
 		this.element.style.display = 'none';
+		this.closeDependants();
 		if(this.onCloseHide) return this;
+		delete this;
+	};
+Pane.prototype.closeDependants = function () {
 		if(this.hasOwnProperty('dependants')) {
 			for(var n in this.dependants)
 				this.dependants[n].close();
 		}
-		delete this;
-	};
+	};  
 Pane.prototype.executeHeaderAction = function (id) {
 		if(this.headerRow) {
 			this.headerRow.executeAction(id);
@@ -797,14 +782,7 @@ function PaneFloat(b,p,o,t,a) {
 	}
 	this.pane.headerRow.element.draggable=true;//dragStart
 	this.pane.headerRow.element.addEventListener('dragstart', dragStart.bind(this), false);
-//	this.moveBase=this.pane.headerRow?this.pane.headerRow.element:this.pane.element;
-//	this.moveBase.style.cursor="move";
-//	this.moveBase.moveObject=this.pane.element;
-//	this.moveBase.addEventListener('mousedown', setMoveObject.bind(this), false);
 }
-//PaneFloat.prototype.size = function () {
-		//
-//	};
 PaneFloat.prototype.position = function (x,y) {
 		this.positionAbsolute(this.pane.base.getAdjustedPosition(x,y,this.pane.element))
 	};
@@ -886,6 +864,7 @@ TabPane.prototype.hideCurrent = function (e) {
 		try{
 			this.panesRow.cells[this.activeTab].style.display = 'none';
 			this.tabsRow.cells[this.activeTab].style.backgroundColor="";
+			this.panesRow.cells[this.activeTab].firstChild.IRender.closeDependants();
 		} catch(e) {}
 		this.activeTab=null;
 	};
@@ -919,14 +898,14 @@ TabPane.prototype.setDetail = function (t,n) {
 		var ct=css.setClass(createTableCell(this.tabsRow),"Tab")
 			,cp=css.setClass(createTableCell(this.panesRow),"TabDetail");
 		ct.addEventListener('click', this.onclick.bind(this), false);	
-		var ctt=css.setClass(document.createElement("a"),"MenuText");
+		var ctt=createElement("a","MenuText",ct);
 		ctt.innerText=t;
-		ct.appendChild(ctt);
 		addCloseIcon(this,ct);
 		this.setCurrent(this.tabsRow.cells.length-1);
 		n.iRender={tabPane:this,title:t};
 		cp.appendChild(n);
 		if(this.tabsRow.cells.length>1) this.tabsUnhide();
+		n.IRenderTab=ct;
 		return this;
 	};
 TabPane.prototype.tabsHide = function () {
@@ -983,6 +962,7 @@ function Cell(row) {
 	this.row=row;
 	this.element=document.createElement("TD");
 	row.appendCell(this);
+	return this;
 }
 function Window (b,p,n) {
 	this.element=css.setClass(createTable(),"Table");
@@ -992,7 +972,6 @@ function Window (b,p,n) {
 	this.footerRow=new FooterRow(b,p,this.element,{style:"FooterMain"});
 	n.append(this.element);
 	b.floatHandle=n;
-//	this.sizeCenter();
 }	
 Window.prototype.sizeCenter = function () {
 		// rect is a DOMRect object with eight properties: left, top, right, bottom, x, y, width, height
@@ -1013,9 +992,14 @@ function IRenderClass() {
     	this.add("CloseIcon","float:right;height: 12px; width: 12px;  border: 4px; margin: 0px 0px 0px 4px;");
     	this.add("CellRight","float:right;");
     	this.add("CellRight:hover","cursor: pointer; filter: invert(100%);");
-    	this.add("CellRight:focus","cursor: pointer; filter: invert(100%);");
+    	this.add("FullSize","height: 100%; width: 100%;");
+    	this.add("HeaderCenter","float: center;width: 100%;");
     	this.add("HeaderMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center;  padding: 1px; display: table-row;");
     	this.add("Header","background-color: LightGrey; height: 25px; width: 100%; text-align: center; vertical-align:top ;");
+    	this.add("HeaderRow","background-color: LightGrey; height: 100%; width: 100%; text-align: center; vertical-align:top ;");
+    	this.add("HeaderLeft","float: left;");
+    	this.add("HeaderCenter","float: center;width: 100%;");
+    	this.add("HeaderRight","float: right;");
     	this.add("FooterMain","background-color: LightSkyBlue; height: 25px; width: 100%; text-align: center; display: table-row;");
     	this.add("FooterMainCell","background-color: LightSkyBlue; display: table-cell;");
     	this.add("Footer","background-color: LightGrey; width: 100%; text-align: center;");
@@ -1083,7 +1067,7 @@ function IRender() {
 	this.actions={folder:{type:"folder"}};
 	this.guid=0;
 	this.metadata = {
-			action: {id:null,type:["link","pane","svg","googleMap","vis"],url:null,title:null,target:null,pane:null,passing:null,setDetail:null}
+			action: {id:null,type:["link","pane","svg","googleMap"],url:null,title:null,target:null,pane:null,passing:null,setDetail:null}
 			,image: {id:null ,file:null}
 			,menu: {id:null ,options:{"default":Array.constructor}}
 			,menuOption: {title:null ,action:null ,passing:null}
@@ -1106,6 +1090,22 @@ function IRender() {
 		,passing:{message:"Action has not been defined"}});
 	this.addAction({id:"visConfiguration",title:"Vis Configuration",type:"floatingPane",pane:"visConfiguration"})
 	this.addPane({id:"visConfiguration",title:"vis Configuration",onCloseHide:true})
+	this.addAction({id:"vis",title:"vis",type:"pane",pane:"vis",
+		setDetail:function (p) {
+				var div=createDiv();
+				p.setDetail(div);
+				if(this.passing.config) {
+					var nc=createDiv();
+					nc.style.height=Math.round(window.innerHeight * 0.80) + 'px'; 
+					nc.style.overflow='auto';
+					var options= Object.assign({configure:{enabled:true,container: nc,showButton:true}},this.passing.options);
+					p.headerRow.addRight([{image:"edit",action:"visConfiguration"}]);
+					p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);
+				} else
+					var options=this.passing.options;
+				p.network = new vis[this.passing.module||"Network"](div,this.passing.dataset, options);
+			}
+	});
 }
 IRender.prototype.getImage = function(n) {
 		var i = new Image(16,16);

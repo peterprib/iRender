@@ -29,7 +29,7 @@ var rendering;
 
 require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 	console.log("IRender test");
-	var dataseta = new vis.DataSet([
+	var g2data = new vis.DataSet([
 	    {x: '2014-06-11', y: 10},
 	    {x: '2014-06-12', y: 25},
 	    {x: '2014-06-13', y: 30},
@@ -73,8 +73,8 @@ require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 		.addMenuOption("mainMenu",{title:"Test Pane1",action:"testAction2"})
 		.addMenuOption("mainMenu",{title:"Test Folder",action:"folder",passing:{}})
 
-		.addMenuOption("mainMenu",{title:"test vis",action:"vis",passing:{module:"Network",options:{},dataset:nodedata}})
-		.addAction({id:"vis",title:"vis",type:"vis",pane:"vis"})
+		.addMenuOption("mainMenu",{title:"test vis",action:"vis",passing:{config:true,module:"Network",options:{},dataset:nodedata}})
+//		.addAction({id:"vis",title:"vis",type:"vis",pane:"vis"})
 		.addMenuOption("mainMenu",{title:"test vis inline",action:"visInline"})
 		.addAction({id:"visInline",title:"vis",type:"pane",pane:"visInline",
 				setDetail:function (p) {
@@ -92,10 +92,23 @@ require(["svg","IRender","/vis/vis.js"], function (Svg,IRender,vis) {
 		.addAction({id:"visConfiguration",title:"Vis Configuration",type:"floatingPane",pane:"visConfiguration"})
 		.addPane({id:"visConfiguration",title:"vis Configuration",onCloseHide:true})
 						
+		.addMenuOption("mainMenu",{title:"test vis inline g2d",action:"visInlineg2d"})
+		.addAction({id:"visInlineg2d",title:"vis",type:"pane",pane:"visInline",
+				setDetail:function (p) {
+					var div=createDiv();
+					p.setDetail(div);
+					var nc=createDiv();
+					nc.style.height=Math.round(window.innerHeight * 0.80) + 'px'; 
+					nc.style.overflow='auto';
+					p.executeHeaderAction("visConfiguration").dependants.visConfiguration.setDetail(nc);
+					var network = new vis.Graph2d(div, g2data,{
+							configure:{enabled:true,container: nc}
+				});
+				}
+			})
 
 		.addPane({id:"visInline",title:"vis",header:{right:[{image:"edit",action:"visConfiguration"}]}})
 		.addPane({id:"vis",title:"vis"})
-
 		.addMenuOption("mainMenu",{title:"SVG",action:"svg"})
 		.addMenuOption("mainMenu",{title:"Google Map",action:"googleMap"})
 		.addMenuOption("mainMenu",{title:"States",action:"states"})
