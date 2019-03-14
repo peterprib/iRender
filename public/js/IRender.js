@@ -84,7 +84,6 @@ fireEvent.prototype.getEventClass = function (e) {
 	};
 	
 function setMoveObject (ev) {
-//	if(ev.target.nodeName=="svg") return;
 	try{
 		if(ev.target.getAttribute("draggable")==="false") return;
 	} catch(e) {}
@@ -93,11 +92,8 @@ function setMoveObject (ev) {
 	this.moveObject=this.pane.element;
 	this.moveX=ev.clientX;
 	this.moveY=ev.clientY;
-//	this.moveObject.addEventListener('mouseout', setMoveObject.prototype.reset.bind(this), false);
-//	this.moveObject.addEventListener('mouseenter', setMoveObject.prototype.reset.bind(this), false);
 	window.addEventListener('mouseup', setMoveObject.prototype.reset.bind(this), false);
 	window.addEventListener('mousemove', setMoveObject.prototype.move.bind(this), false);
-//	this.moveObject.addEventListener('click', setMoveObject.prototype.doNothing.bind(this), false);
 }
 setMoveObject.prototype.add2Attr = function (e,o) {
 	for(var p in o) {
@@ -321,8 +317,7 @@ CenterRow.prototype.getDetailObject = function () {
 		return this.detail.firstChild.iRender;
 	};
 CenterRow.prototype.content = function (c) {
-		this.content=new Form(this).addItem(c);
-		this.detail.appendChild(this.content.element);
+		this.contentDetail=new IForm(this,this.detail).addItem(c);
 	};
 CenterRow.prototype.appendChild = function (n) {
 		this.detail.appendChild(n);
@@ -336,104 +331,7 @@ function FooterRow(b,p,n,o) {
 	this.center.appendChild(createNode(p.footer||"No Title Set"));
 }
 
-function Form(parent) {
-	this.element=createTable();
-	this.activeFilter=[];
-	this.parent=parent;
-}
-Form.prototype.applyFilter = function (f) {
-		if(f) this.activeFilter=(f instanceof Array? f : [f]);
-		row:for(var t,f, i=0;i<this.element.rows.length;i++) {
-			if(this.element.rows[i].filterTags) {
-				f=this.element.rows[i].filterTags;
-				for (var c in f) {
-					var t =this.activeFilter.indexOf(f[c]);
-					if(this.activeFilter.indexOf(f[c])<0) {
-						this.element.rows[i].style.display="none";
-						continue row;
-					}
-				}
-				this.element.rows[i].style.display="table-row";
-			}
-		}
-	};
-//Form.prototype.button = function (p,t) {
-		//this.action(Object.assign({action:"input",type:"button"},p),t)
-//	};
 
-Form.prototype.getTargetObject = function () {
-		return this.getTargetObject();
-	};
-Form.prototype.input = function (p,m,t) {
-		return this.addItem(Object.assign({action:"input"},p),m,t);
-	};
-Form.prototype.options = function (s,p) {
-		for(var o in p.options) {
-			s.appendChild(this.set(document.createElement(p.action),Object.assign(e,p.options[o])));
-		}
-	};
-Form.prototype.select = function (p,m,t) {
-	return this.addItem(Object.assign({action:"select"},p),m,t);
-	};
-Form.prototype.addItem = function (p,m,t) {
-		if(p instanceof Array) {
-			for(var i=0;i<p.length;i++) {
-				this.addItem(p[i],m,t);
-			}
-			return this;
-		}
-		var r=createTableRow(this.element);
-		if(m) r.mapping=m
-		if(t) r.filterTags=(t instanceof Array? t : [t]);
-		createTableCell(r).appendChild(createNode(p.title));
-		createTableCell(r).appendChild(this.action(p));
-		return this;
-	};
-Form.prototype.getMapping = function () {
-		for(var r={}, i=0;i<this.element.rows.length;i++) {
-			if(this.element.rows[i].mapping) {
-				r[this.element.rows[i].mapping]=this.getValue(i);
-			}
-		}
-		return r;
-	};
-Form.prototype.setMapping = function (p) {
-		if(p== null) {
-			console.error("form set mapping no properties provided");
-			return;
-		}
-		for(var m, i=0;i<this.element.rows.length;i++) {
-			if(this.element.rows[i].mapping) {
-				m=this.element.rows[i].mapping;
-				if(m in p) {
-					this.setValue(i,p[m]);
-				}
-			}
-		}
-		return this;
-	};
-Form.prototype.getTitleRow = function (t) {
-		for(var i=0;i<this.element.rows.length;i++) {
-			if(this.element.rows[i].cell[0].innerText==t) {
-				return this.element.rows[i];
-			}
-		}
-		throw Error("form title not found for "+t);
-	};
-Form.prototype.getTitleInputCell = function (t) {
-		return this.getTitleRow(t).cell[1];
-	};
-Form.prototype.getTitleInput = function (t) {
-		return this.getTitleInputCell(t).firstChild;
-	};
-Form.prototype.getValue = function (i) {
-		var e=this.element.rows[i].cells[1].firstChild;
-		switch(e.nodeName) {
-			case "INPUT": return e.value;
-			case "SELECT": return e.options[e.selectedIndex].value;
-		}
-		console.error("Form getValue unknown: "+e.nodeName)
-	};
 function rgb(r,g,b) {
 	return "#"+("00000"+((r<<16)+(g<<8)+b).toString(16)).substr(-6);
 }
@@ -581,9 +479,9 @@ HeaderRow.prototype.onclickAction = function (ev) {
 		var action=ev.currentTarget.iRenderAction
 		action.exec(this,ev,this.passing);
 	};
-HeaderRow.prototype.onclickClose = function (e) {
-		e.stopPropagation();
-		this.pane.onclickClose(e);
+HeaderRow.prototype.onclickClose = function (ev) {
+		ev.stopPropagation();
+		this.pane.onclickClose(ev);
 	};
 
 function Menu(b,p,n,t) {
