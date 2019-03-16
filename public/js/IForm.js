@@ -1,3 +1,5 @@
+
+/*
 function rgb(r,g,b) {
 	return "#"+("00000"+((r<<16)+(g<<8)+b).toString(16)).substr(-6);
 }
@@ -9,12 +11,7 @@ function createElement(e,n) {
 	n.appendChild(c);
 	return c;
 }
-
-function getIconImage(n) {
-	var i = new Image(16,16);
-	i.src="images/"+n;
-	return i;
-};
+*/
 
 function IForm(parent,node,title) {
 	this.css=new IRenderClass("IFormCSS")
@@ -31,14 +28,32 @@ function IForm(parent,node,title) {
 
 	this.header=this.css.createElement(this.element,"TR","Header")
 	this.header.appendChild(document.createTextNode(title||"Form"))
-	this.closeIcon=this.css.setClass(getIconImage("close_s.gif"),"CloseIcon");
+	this.closeIcon=this.css.setClass(this.getIconImage("close_s.gif"),"CloseIcon");
 	this.header.appendChild(this.closeIcon);
 	this.closeIcon.addEventListener('click', this.onclickClose.bind(this), false);
 	
 	this.core=this.css.createElement(this.element,"TR");
 	this.footer=this.css.createElement(this.element,"TR");
 	this.data=this.css.createElement(this.core,"TABLE");
+	this.element.draggable=true;//dragStart
+	this.element.addEventListener('dragstart', this.dragStart.bind(this), false);
 }
+
+IForm.prototype.createTableCell=function(r) {
+	return this.createElement("TD",r);
+}
+IForm.prototype.createElement=function(e,n) {
+	var c=document.createElement(e);
+	n.appendChild(c);
+	return c;
+}
+
+IForm.prototype.getIconImage = function (n) {
+	var i = new Image(16,16);
+	i.src="images/"+n;
+	i.alt="X";
+	return i;
+};
 IForm.prototype.setRemove = function (f) {
 	this.parentRemove=f;
 	return this;
@@ -97,9 +112,9 @@ IForm.prototype.addItem = function (p,m,t) {
 			}
 			return this;
 		}
-		var r=createElement("TR",this.data);
-		createTableCell(r).appendChild(document.createTextNode(p.title));
-		createTableCell(r).appendChild(this.action(p));
+		var r=this.createElement("TR",this.data);
+		this.createTableCell(r).appendChild(document.createTextNode(p.title));
+		this.createTableCell(r).appendChild(this.action(p));
 		return this;
 	};
 IForm.prototype.getMapping = function () {
@@ -128,7 +143,7 @@ IForm.prototype.setMapping = function (p) {
 IForm.prototype.getTitleRow = function (t) {
 		for(var i=0;i<this.data.rows.length;i++) {
 			if(this.data.rows[i].cell[0].innerText==t) {
-				return this.data.rows[i];
+				return this.data.rows[i]
 			}
 		}
 		throw Error("form title not found for "+t);
@@ -147,13 +162,16 @@ IForm.prototype.getValue = function (i) {
 		}
 		console.error("Form getValue unknown: "+e.nodeName)
 	};
+IForm.prototype.rgb = function (r,g,b) {
+		return "#"+("00000"+((r<<16)+(g<<8)+b).toString(16)).substr(-6);
+	};
 IForm.prototype.setValue = function (i,v) {
 		var e=this.data.rows[i].cells[1].firstChild;
 		switch(e.nodeName) {
 			case "INPUT":
 				if(e.type=="color" && !v.startsWith("#")) {
 					if(v.startsWith("rgb(")) {
-						v=eval(v);
+						v=eval("this."+v);
 					} else {
 						if(!(v in colors)) throw Error("color not found for "+v);
 						v=colors[v];
@@ -202,8 +220,14 @@ IForm.prototype.action = function (p) {
 			}
 			return span
 		}
-		if(typeof p === 'object') 
-			return this.set(document.createElement(p.action),Object.assign(p,{draggable:true}),{action:null,title:null});
+		if(typeof p === 'object') {
+			var e= document.createElement(p.action)
+			if(p.action.toUpperCase()=="TEXTAREA") {
+				e.append(document.createTextNode(p.value));
+			}
+			return this.set(e,Object.assign(p,{draggable:true}),{action:null,title:null});
+
+		}
 		return document.createTextNode(p);
 	};
 IForm.prototype.set = function (e,o,r) {
@@ -234,10 +258,10 @@ IForm.prototype.set = function (e,o,r) {
 			if(a instanceof Object) {
 				for(var p1 in a) {
 					if(p1=="function") {
-						a.function.apply(this, [e])
+						a.function.apply(this, [e]);
 					}
 				}
-				continue
+				continue;
 			}
 			e.setAttribute(p,a);
 		}
@@ -248,6 +272,36 @@ IForm.prototype.positionAbsolute = function (p) {
 		this.element.style.top=p.y+"px";
 		this.element.style.position="absolute";
 		return this;
+	};
+IForm.prototype.dragStart = function(ev) {
+		this.dragStartX=ev.pageX;
+		this.dragStartY=ev.pageY;
+		ev.target.style.opacity = .5;
+		document.addEventListener('dragend',this.dragEnd.bind(this), {once:true});
+		document.addEventListener("dragover",this.dragAllowDrop.bind(this), false);
+	};
+IForm.prototype.dragEnd = function(ev) {
+	    ev.target.style.opacity = "";
+	    document.removeEventListener('dragover',this.dragAllowDrop.bind(this), false);
+//	    document.removeEventListener('dragEnd',this.dragEnd.bind(this), false);
+	    this.movePane({x:ev.pageX-this.dragStartX,y:ev.pageY-this.dragStartY});
+	};
+IForm.prototype.dragAllowDrop = function(ev) {
+		ev.preventDefault();
+	}
+IForm.prototype.movePane = function (p) {
+		const rect = this.element.getBoundingClientRect();
+		this.positionAbsolute({x:rect.left+p.x,y:rect.top+p.y});
+		this.setMaxPaneSize();
+	};
+IForm.prototype.getBoundingClientRect = function() {
+		return this.parent.getBoundingClientRect();
+	};
+IForm.prototype.setMaxPaneSize = function () {
+		const p = this.element.getBoundingClientRect()
+			,w=this.parent.element.getBoundingClientRect()
+		if(w.width<p.right) this.element.style.width=(w.width-p.left)+"px";
+ 		if(w.height<p.bottom) this.element.style.height=(w.height-p.top)+"px";
 	};
 if (typeof define !== 'function') var define = require('amdefine')(module);
 define(function(require) { return IForm; });

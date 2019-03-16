@@ -1,15 +1,3 @@
-
-/*
- * metadata [name: ???, type: ???, title:"a col"} ]
- * [{column:0,format:afunction,title:"a col"},...]
- * 
- * to run require(["IRenderClass","IFormat"]), required
- * 
- * 
- * var myWindow = window.open("", "newWindow", "width=500,height=700");
- * 
- */
-
 {{{payload}}}
 
 function ITableDataRender(element,urlData,md,mp,d) {
@@ -206,6 +194,3 @@ ITableDataRender.prototype.getHTMLTable = function () {
 	}
 	return t;
 };
-
-if (typeof define !== 'function') var define = require('amdefine')(module);
-define(function(require) { return ITableDataRender; });
